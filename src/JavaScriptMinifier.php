@@ -1,16 +1,32 @@
 <?php
 /**
- * JavaScript Minifier
+ * Copyright 2011 Paul Copperman <paul.copperman@gmail.com>
+ * Copyright 2018 Timo Tijhof
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * @file
- * @author Paul Copperman <paul.copperman@gmail.com>
  * @license Apache-2.0
  * @license MIT
  * @license GPL-2.0-or-later
  * @license LGPL-2.1-or-later
  */
 
+namespace Wikimedia\Minify;
+
 /**
+ * JavaScript Minifier
+ *
  * This class is meant to safely minify javascript code, while leaving syntactically correct
  * programs intact. Other libraries, such as JSMin require a certain coding style to work
  * correctly. OTOH, libraries like jsminplus, that do parse the code correctly are rather
@@ -77,6 +93,8 @@ class JavaScriptMinifier {
 	private const STACK_LIMIT = 1000;
 
 	/**
+	 * @var int $maxLineLength
+	 *
 	 * Maximum line length
 	 *
 	 * This is not a strict maximum, but a guideline. Longer lines will be
@@ -92,7 +110,7 @@ class JavaScriptMinifier {
 	 * Returns minified JavaScript code.
 	 *
 	 * @param string $s JavaScript code to minify
-	 * @return string Minified code
+	 * @return string|bool Minified code or false on failure
 	 */
 	public static function minify( $s ) {
 		// First we declare a few tables that contain our parsing rules
@@ -643,6 +661,7 @@ class JavaScriptMinifier {
 			// Handle C++-style comments and html comments, which are treated as single line
 			// comments by the browser, regardless of whether the end tag is on the same line.
 			// Handle --> the same way, but only if it's at the beginning of the line
+			// @phan-suppress-next-line PhanPossiblyUndeclaredVariable
 			if ( ( $ch === '/' && substr( $s, $pos, 2 ) === '//' )
 				|| ( $ch === '<' && substr( $s, $pos, 4 ) === '<!--' )
 				|| ( $ch === '-' && $newlineFound && substr( $s, $pos, 3 ) === '-->' )
@@ -843,6 +862,12 @@ class JavaScriptMinifier {
 		return $out;
 	}
 
+	/**
+	 * @param string $fullJavascript
+	 * @param int $position
+	 * @param string $errorMsg
+	 * @return bool
+	 */
 	public static function parseError( $fullJavascript, $position, $errorMsg ) {
 		// TODO: Handle the error: trigger_error, throw exception, return false...
 		return false;

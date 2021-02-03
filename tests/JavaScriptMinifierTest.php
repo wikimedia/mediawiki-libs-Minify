@@ -1,8 +1,11 @@
 <?php
+use Wikimedia\Minify\JavaScriptMinifier;
 
+/**
+ * @covers Wikimedia\Minify\JavaScriptMinifier
+ * @coversDefaultClass Wikimedia\Minify\JavaScriptMinifier
+ */
 class JavaScriptMinifierTest extends PHPUnit\Framework\TestCase {
-
-	use MediaWikiCoversValidator;
 
 	protected function tearDown() : void {
 		// Reset
@@ -75,18 +78,18 @@ class JavaScriptMinifierTest extends PHPUnit\Framework\TestCase {
 			[ "5.3.\nx;", "5.3.x;" ],
 
 			// Cover failure case for incomplete hex literal
-			[ "0x;", false, false ],
+			[ "0x;", false ],
 
 			// Cover failure case for number with no digits after E
-			[ "1.4E", false, false ],
+			[ "1.4E", false ],
 
 			// Cover failure case for number with several E
-			[ "1.4EE2", false, false ],
-			[ "1.4EE", false, false ],
+			[ "1.4EE2", false ],
+			[ "1.4EE", false ],
 
 			// Cover failure case for number with several E (nonconsecutive)
 			// FIXME: This is invalid, but currently tolerated
-			[ "1.4E2E3", "1.4E2 E3", false ],
+			[ "1.4E2E3", "1.4E2 E3" ],
 
 			// Semicolon insertion between an expression having an inline
 			// comment after it, and a statement on the next line (T29046).
@@ -101,7 +104,7 @@ class JavaScriptMinifierTest extends PHPUnit\Framework\TestCase {
 
 			// Cover failure case of incomplete char class in regexp (T75556)
 			// FIXME: This is invalid, but currently tolerated
-			[ "/a[b/.test", "/a[b/.test", false ],
+			[ "/a[b/.test", "/a[b/.test" ],
 
 			// Cover failure case of incomplete string at end of file (T75556)
 			// FIXME: This is invalid, but currently tolerated
@@ -191,20 +194,9 @@ class JavaScriptMinifierTest extends PHPUnit\Framework\TestCase {
 
 	/**
 	 * @dataProvider provideCases
-	 * @covers JavaScriptMinifier::minify
-	 * @covers JavaScriptMinifier::parseError
 	 */
-	public function testMinifyOutput( $code, $expectedOutput, $expectedValid = true ) {
+	public function testMinifyOutput( $code, $expectedOutput ) {
 		$minified = JavaScriptMinifier::minify( $code );
-
-		// JSMin+'s parser will throw an exception if output is not valid JS.
-		// suppression of warnings needed for stupid crap
-		if ( $expectedValid ) {
-			Wikimedia\suppressWarnings();
-			$parser = new JSParser();
-			Wikimedia\restoreWarnings();
-			$parser->parse( $minified, 'minify-test.js', 1 );
-		}
 
 		$this->assertEquals(
 			$expectedOutput,
@@ -354,7 +346,6 @@ JAVASCRIPT
 
 	/**
 	 * @dataProvider provideLineBreaker
-	 * @covers JavaScriptMinifier::minify
 	 */
 	public function testLineBreaker( $code, array $expectedLines ) {
 		$this->setMaxLineLength( 1 );

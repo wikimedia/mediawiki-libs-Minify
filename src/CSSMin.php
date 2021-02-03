@@ -1,35 +1,37 @@
 <?php
 /**
- * Minification of CSS stylesheets.
+ * Copyright 2010 Trevor Parscal <tparscal@wikimedia.org>
  *
- * Copyright 2010 Wikimedia Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may
- * not use this file except in compliance with the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software distributed
- * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS
- * OF ANY KIND, either express or implied. See the License for the
- * specific language governing permissions and limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * @file
- * @version 0.1.1 -- 2010-09-11
- * @author Trevor Parscal <tparscal@wikimedia.org>
- * @copyright Copyright 2010 Wikimedia Foundation
  * @license Apache-2.0
  */
 
+namespace Wikimedia\Minify;
+
+use Net_URL2;
+
 /**
- * Transforms CSS data
+ * Transforms CSS data.
  *
  * This class provides minification, URL remapping, URL extracting, and data-URL embedding.
  */
 class CSSMin {
 
-	/** @var string Strip marker for comments. */
+	/**
+	 * Strip marker for comments
+	 */
 	private const PLACEHOLDER = "\x7fPLACEHOLDER\x7f";
 
 	/**
@@ -40,7 +42,10 @@ class CSSMin {
 	private const EMBED_REGEX = '\/\*\s*\@embed\s*\*\/';
 	private const COMMENT_REGEX = '\/\*.*?\*\/';
 
-	/** @var string[] List of common image files extensions and MIME-types */
+	/**
+	 * @var string[] $mimeTypes
+	 * List of common image files extensions and MIME-types
+	 */
 	protected static $mimeTypes = [
 		'gif' => 'image/gif',
 		'jpe' => 'image/jpeg',
@@ -189,7 +194,7 @@ class CSSMin {
 	public static function serializeStringValue( $value ) {
 		$value = strtr( $value, [ "\0" => "\u{FFFD}", '\\' => '\\\\', '"' => '\\"' ] );
 		$value = preg_replace_callback( '/[\x01-\x1f\x7f]/', function ( $match ) {
-			return '\\' . base_convert( ord( $match[0] ), 10, 16 ) . ' ';
+			return '\\' . base_convert( (string)ord( $match[0] ), 10, 16 ) . ' ';
 		}, $value );
 		return '"' . $value . '"';
 	}
@@ -226,13 +231,13 @@ class CSSMin {
 
 	/**
 	 * Remaps CSS URL paths and automatically embeds data URIs for CSS rules
-	 * or url() values preceded by an / * @embed * / comment.
+	 * or url() values preceded by an `/ * @embed * /` comment.
 	 *
 	 * @param string $source CSS data to remap
 	 * @param string $local File path where the source was read from
 	 * @param string $remote Full URL to the file's directory (may be protocol-relative, trailing slash is optional)
 	 * @param bool $embedData If false, never do any data URI embedding,
-	 *   even if / * @embed * / is found.
+	 *   even if `/ * @embed * /` is found.
 	 * @return string Remapped CSS data
 	 */
 	public static function remap( $source, $local, $remote, $embedData = true ) {
@@ -344,11 +349,13 @@ class CSSMin {
 					$needsEmbedFallback = $mimeTypes !== [ 'image/svg+xml' => true ];
 				}
 
+				// @phan-suppress-next-line PhanPossiblyUndeclaredVariable
 				if ( !$embedData || $ruleWithEmbedded === $ruleWithRemapped ) {
 					// We're not embedding anything, or we tried to but the file is not embeddable
 					return $ruleWithRemapped;
 				} else {
 					// Use a data URI in place of the @embed comment.
+					// @phan-suppress-next-line PhanPossiblyUndeclaredVariable
 					return $ruleWithEmbedded;
 				}
 			}, $source );

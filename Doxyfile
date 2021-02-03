@@ -1,0 +1,18 @@
+# Doxyfile <https://www.doxygen.nl/manual/config.html>
+PROJECT_NAME           = "wikimedia/minify"
+PROJECT_BRIEF          = "Minification of JavaScript code and CSS stylesheets"
+OUTPUT_DIRECTORY       = doc
+JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = YES
+ALIASES                = "license=@note"
+NUM_PROC_THREADS       = 0
+QUIET                  = YES
+WARN_NO_PARAMDOC       = YES
+INPUT                  = README.md src/
+FILE_PATTERNS          = *.php
+RECURSIVE              = YES
+USE_MDFILE_AS_MAINPAGE = README.md
+HTML_DYNAMIC_SECTIONS  = YES
+GENERATE_TREEVIEW      = YES
+TREEVIEW_WIDTH         = 250
+GENERATE_LATEX         = NO

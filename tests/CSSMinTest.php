@@ -1,16 +1,26 @@
 <?php
-
+use Wikimedia\Minify\CSSMin;
 use Wikimedia\TestingAccessWrapper;
 
 /**
- * @group ResourceLoader
- * @group CSSMin
+ * @covers Wikimedia\Minify\CSSMin
+ * @coversDefaultClass Wikimedia\Minify\CSSMin
  */
-class CSSMinTest extends MediaWikiIntegrationTestCase {
+class CSSMinTest extends PHPUnit\Framework\TestCase {
+
+	private $files = [];
+
+	protected function tearDown() : void {
+		foreach ( $this->files as $file ) {
+			unlink( $file );
+		}
+		$this->files = [];
+		parent::tearDown();
+	}
 
 	/**
 	 * @dataProvider providesReferencedFiles
-	 * @covers CSSMin::getLocalFileReferences
+	 * @covers ::getLocalFileReferences
 	 */
 	public function testGetLocalFileReferences( $input, $expected ) {
 		$output = CSSMin::getLocalFileReferences( $input, '/' );
@@ -37,7 +47,7 @@ class CSSMinTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideSerializeStringValue
-	 * @covers CSSMin::serializeStringValue
+	 * @covers ::serializeStringValue
 	 */
 	public function testSerializeStringValue( $input, $expected ) {
 		$output = CSSMin::serializeStringValue( $input );
@@ -68,20 +78,21 @@ class CSSMinTest extends MediaWikiIntegrationTestCase {
 			[ 'ä', '"ä"' ],
 			[ 'Ä', '"Ä"' ],
 			[ '€', '"€"' ],
-			[ '𝒞', '"𝒞"' ], // U+1D49E 'MATHEMATICAL SCRIPT CAPITAL C'
+			// U+1D49E 'MATHEMATICAL SCRIPT CAPITAL C':
+			[ '𝒞', '"𝒞"' ],
 		];
 	}
 
 	/**
 	 * @dataProvider provideMimeType
-	 * @covers CSSMin::getMimeType
+	 * @covers ::getMimeType
 	 */
-	public function testGetMimeType( $fileContents, $fileExtension, $expected ) {
-		// Automatically removed when it falls out of scope (including if the test fails)
-		$file = TempFSFile::factory( 'PHPUnit_CSSMinTest_', $fileExtension, wfTempDir() );
-		$fileName = $file->getPath();
-		file_put_contents( $fileName, $fileContents );
-		$this->assertSame( $expected, CSSMin::getMimeType( $fileName ) );
+	public function testGetMimeType( $fileContents, $extension, $expected ) {
+		$this->files[] = $path = tempnam( sys_get_temp_dir(), 'cssmin_' );
+		$this->files[] = $dest = "{$path}.{$extension}";
+
+		file_put_contents( $dest, $fileContents );
+		$this->assertSame( $expected, CSSMin::getMimeType( $dest ) );
 	}
 
 	public static function provideMimeType() {
@@ -150,7 +161,7 @@ class CSSMinTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideMinifyCases
-	 * @covers CSSMin::minify
+	 * @covers ::minify
 	 */
 	public function testMinify( $code, $expectedOutput ) {
 		$minified = CSSMin::minify( $code );
@@ -160,6 +171,24 @@ class CSSMinTest extends MediaWikiIntegrationTestCase {
 			$minified,
 			'Minified output should be in the form expected.'
 		);
+	}
+
+	/**
+	 * FIXME: Separated because they are currently broken (T37492)
+	 */
+	public static function provideMinifyKnownFailures() {
+		return [
+			// String values should be respected
+			// - More than one space in a string value
+			[ 'foo { content: "  "; }', 'foo{content:"  "}' ],
+			// - Using a tab in a string value (turns into a space)
+			[ "foo { content: '\t'; }", "foo{content:'\t'}" ],
+			// - Using css-like syntax in string values
+			[
+				'foo::after { content: "{;}"; position: absolute; }',
+				'foo::after{content:"{;}";position:absolute}'
+			],
+		];
 	}
 
 	public static function provideMinifyCases() {
@@ -229,7 +258,7 @@ class CSSMinTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideIsRemoteUrl
-	 * @covers CSSMin::isRemoteUrl
+	 * @covers ::isRemoteUrl
 	 */
 	public function testIsRemoteUrl( $expect, $url ) {
 		$class = TestingAccessWrapper::newFromClass( CSSMin::class );
@@ -254,7 +283,7 @@ class CSSMinTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideIsLocalUrls
-	 * @covers CSSMin::isLocalUrl
+	 * @covers ::isLocalUrl
 	 */
 	public function testIsLocalUrl( $expect, $url ) {
 		$class = TestingAccessWrapper::newFromClass( CSSMin::class );
@@ -264,10 +293,10 @@ class CSSMinTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * This test tests funky parameters to CSSMin::remap.
 	 *
-	 * @see testRemapRemapping for testing of the basic functionality
+	 * @see testRemapRemapping() for testing of the basic functionality
 	 * @dataProvider provideRemapCases
-	 * @covers CSSMin::remap
-	 * @covers CSSMin::remapOne
+	 * @covers ::remap
+	 * @covers ::remapOne
 	 */
 	public function testRemap( $message, $params, $expectedOutput ) {
 		$remapped = CSSMin::remap( ...$params );
@@ -343,7 +372,6 @@ class CSSMinTest extends MediaWikiIntegrationTestCase {
 	 * Regression test for T191237.
 	 *
 	 * @dataProvider provideRemapEmptyUrl
-	 * @covers CSSMin
 	 */
 	public function testRemapEmptyUrl( $params, $expected ) {
 		$remapped = CSSMin::remap( ...$params );
@@ -376,10 +404,9 @@ class CSSMinTest extends MediaWikiIntegrationTestCase {
 	 *
 	 * @see testRemap for testing of funky parameters
 	 * @dataProvider provideRemapRemappingCases
-	 * @covers CSSMin
 	 */
 	public function testRemapRemapping( $message, $input, $expectedOutput ) {
-		$localPath = __DIR__ . '/../../data/cssmin';
+		$localPath = __DIR__ . '/data';
 		$remotePath = 'http://localhost/w';
 
 		$realOutput = CSSMin::remap( $input, $localPath, $remotePath );
@@ -631,7 +658,7 @@ class CSSMinTest extends MediaWikiIntegrationTestCase {
 	 * This tests basic functionality of CSSMin::buildUrlValue.
 	 *
 	 * @dataProvider provideBuildUrlValueCases
-	 * @covers CSSMin::buildUrlValue
+	 * @covers ::buildUrlValue
 	 */
 	public function testBuildUrlValue( $message, $input, $expectedOutput ) {
 		$this->assertEquals(
@@ -662,32 +689,6 @@ class CSSMinTest extends MediaWikiIntegrationTestCase {
 				'URL with parentheses',
 				'https://en.wikipedia.org/wiki/Boston_(band)',
 				'url("https://en.wikipedia.org/wiki/Boston_(band)")',
-			],
-		];
-	}
-
-	/**
-	 * Separated because they are currently broken (T37492)
-	 *
-	 * @group Broken
-	 * @dataProvider provideStringCases
-	 * @covers CSSMin::remap
-	 */
-	public function testMinifyWithCSSStringValues( $code, $expectedOutput ) {
-		$this->testMinifyOutput( $code, $expectedOutput );
-	}
-
-	public static function provideStringCases() {
-		return [
-			// String values should be respected
-			// - More than one space in a string value
-			[ 'foo { content: "  "; }', 'foo{content:"  "}' ],
-			// - Using a tab in a string value (turns into a space)
-			[ "foo { content: '\t'; }", "foo{content:'\t'}" ],
-			// - Using css-like syntax in string values
-			[
-				'foo::after { content: "{;}"; position: absolute; }',
-				'foo::after{content:"{;}";position:absolute}'
 			],
 		];
 	}
