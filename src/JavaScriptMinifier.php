@@ -1283,8 +1283,14 @@ class JavaScriptMinifier {
 				}
 				$end += $len;
 			} elseif (
-				ctype_digit( $ch )
-				|| ( $ch === '.' && $pos + 1 < $length && ctype_digit( $s[$pos + 1] ) )
+				// Optimisation: This check must accept only ASCII digits 0-9.
+				// Avoid ctype_digit() because it is slower and also accepts locale-specific digits.
+				// Using is_numeric() might seem wrong also as it accepts negative numbers, decimal
+				// numbers, and exponents (e.g. strings like "+012.34e6"). But, it is fine here
+				// because we know $ch is a single character, and we believe the only single
+				// characters that is_numeric() accepts are ASCII digits 0-9.
+				is_numeric( $ch )
+				|| ( $ch === '.' && $pos + 1 < $length && is_numeric( $s[$pos + 1] ) )
 			) {
 				$end += strspn( $s, '0123456789', $end );
 				$decimal = strspn( $s, '.', $end );
