@@ -65,10 +65,9 @@ class CSSMin {
 	private const COMMENT_REGEX = '\/\*.*?\*\/';
 
 	/**
-	 * @var string[] $mimeTypes
 	 * List of common image files extensions and MIME-types
 	 */
-	protected static $mimeTypes = [
+	private const MIME_TYPES = [
 		'gif' => 'image/gif',
 		'jpe' => 'image/jpeg',
 		'jpeg' => 'image/jpeg',
@@ -99,7 +98,7 @@ class CSSMin {
 
 				// Skip fully-qualified and protocol-relative URLs and data URIs
 				if (
-					substr( $url, 0, 2 ) === '//' ||
+					strpos( $url, '//' ) === 0 ||
 					parse_url( $url, PHP_URL_SCHEME )
 				) {
 					break;
@@ -183,7 +182,7 @@ class CSSMin {
 			// Consolidate runs of multiple spaces in a row
 			$encoded = preg_replace( '/ {2,}/', ' ', $encoded );
 			// Remove leading and trailing spaces
-			$encoded = preg_replace( '/^ | $/', '', $encoded );
+			$encoded = trim( $encoded, ' ' );
 			$uri = 'data:' . $type . ',' . $encoded;
 			return $uri;
 		}
@@ -202,7 +201,7 @@ class CSSMin {
 	 */
 	public static function serializeStringValue( $value ) {
 		$value = strtr( $value, [ "\0" => "\u{FFFD}", '\\' => '\\\\', '"' => '\\"' ] );
-		$value = preg_replace_callback( '/[\x01-\x1f\x7f]/', function ( $match ) {
+		$value = preg_replace_callback( '/[\x01-\x1f\x7f]/', static function ( $match ) {
 			return '\\' . base_convert( (string)ord( $match[0] ), 10, 16 ) . ' ';
 		}, $value );
 		return '"' . $value . '"';
@@ -215,7 +214,7 @@ class CSSMin {
 	public static function getMimeType( $file ) {
 		// Infer the MIME-type from the file extension
 		$ext = strtolower( pathinfo( $file, PATHINFO_EXTENSION ) );
-		return self::$mimeTypes[$ext] ?? mime_content_type( realpath( $file ) );
+		return self::MIME_TYPES[$ext] ?? mime_content_type( realpath( $file ) );
 	}
 
 	/**
@@ -261,13 +260,11 @@ class CSSMin {
 
 		// Guard against trailing slashes, because "some/remote/../foo.png"
 		// resolves to "some/remote/foo.png" on (some?) clients (T29052).
-		if ( substr( $remote, -1 ) == '/' ) {
-			$remote = substr( $remote, 0, -1 );
-		}
+		$remote = rtrim( $remote, '/' );
 
 		// Disallow U+007F DELETE, which is illegal anyway, and which
 		// we use for comment placeholders.
-		$source = str_replace( "\x7f", "?", $source );
+		$source = strtr( $source, "\x7f", "?" );
 
 		// Replace all comments by a placeholder so they will not interfere with the remapping.
 		// Warning: This will also catch on anything looking like the start of a comment between
@@ -278,7 +275,7 @@ class CSSMin {
 
 		$source = preg_replace_callback(
 			$pattern,
-			function ( $match ) use ( &$comments ) {
+			static function ( $match ) use ( &$comments ) {
 				$comments[] = $match[ 0 ];
 				return self::PLACEHOLDER . ( count( $comments ) - 1 ) . 'x';
 			},
@@ -293,7 +290,7 @@ class CSSMin {
 
 		$source = preg_replace_callback(
 			$pattern,
-			function ( $matchOuter ) use ( $local, $remote, $embedData ) {
+			static function ( $matchOuter ) use ( $local, $remote, $embedData ) {
 				$rule = $matchOuter[0];
 
 				// Check for global @embed comment and remove it. Allow other comments to be present
@@ -317,7 +314,7 @@ class CSSMin {
 
 				return preg_replace_callback(
 					$pattern,
-					function ( $match ) use ( $local, $remote, $embedData, $embedAll ) {
+					static function ( $match ) use ( $local, $remote, $embedData, $embedAll ) {
 						// For each url reference in the CSS, call remapOne()
 						// to insert either a remapped URL or an embedded data URI.
 						// We enable use of data URIs if both of these are true:
@@ -341,7 +338,7 @@ class CSSMin {
 
 		// Re-insert comments
 		$pattern = '/' . self::PLACEHOLDER . '(\d+)x/';
-		$source = preg_replace_callback( $pattern, function ( $match ) use ( &$comments ) {
+		$source = preg_replace_callback( $pattern, static function ( $match ) use ( &$comments ) {
 			return $comments[ $match[1] ];
 		}, $source );
 
@@ -355,7 +352,7 @@ class CSSMin {
 	 * @return bool
 	 */
 	protected static function isRemoteUrl( $maybeUrl ) {
-		return substr( $maybeUrl, 0, 2 ) === '//' || parse_url( $maybeUrl, PHP_URL_SCHEME );
+		return strpos( $maybeUrl, '//' ) === 0 || parse_url( $maybeUrl, PHP_URL_SCHEME );
 	}
 
 	/**
@@ -408,7 +405,7 @@ class CSSMin {
 			$base = "https://placeholder.invalid$base";
 		}
 		// Net_URL2::resolve() doesn't allow for protocol-relative URLs, but we want to.
-		$isProtoRelative = substr( $base, 0, 2 ) === '//';
+		$isProtoRelative = strpos( $base, '//' ) === 0;
 		if ( $isProtoRelative ) {
 			$base = "https:$base";
 		}
@@ -449,13 +446,13 @@ class CSSMin {
 		// Also skips anchors or the rare `behavior` property specifying application's default behavior
 		if (
 			self::isRemoteUrl( $url ) ||
-			substr( $url, 0, 1 ) === '#'
+			( $url[0] ?? '' ) === '#'
 		) {
 			return $url;
 		}
 
 		// The $remote must have a trailing slash beyond this point for correct path resolution.
-		if ( substr( $remote, -1 ) !== '/' ) {
+		if ( ( $remote[-1] ?? '' ) !== '/' ) {
 			$remote .= '/';
 		}
 
