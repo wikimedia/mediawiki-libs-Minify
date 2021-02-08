@@ -349,6 +349,15 @@ class CSSMinTest extends PHPUnit\Framework\TestCase {
 				'foo { prop: url(http://example.org/w/skin/images/bar.png); }',
 			],
 			[
+				// Ensure remapping still works for unsafe CSS where embedding is disabled
+				// (e.g. user-generated styles). This ensures that styles can be copied onto the
+				// wiki and still work as expected, just falling back to ignoring @embed like any
+				// other CSS comment.
+				'Ignore embed instruction if not caller has disabled this feature',
+				[ 'foo { /* @embed */ background: url(red.gif); }', false, 'http://localhost/w', false ],
+				"foo { background: url(http://localhost/w/red.gif); }",
+			],
+			[
 				"Don't barf at behavior: url(#default#behaviorName) - T162973",
 				[ 'foo { behavior: url(#default#bar); }', false, 'http://localhost/w/', false ],
 				'foo { behavior: url("#default#bar"); }',

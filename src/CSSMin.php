@@ -306,42 +306,28 @@ class CSSMin {
 				// and with embedded data: URIs (where possible).
 				$pattern = '/(?P<embed>' . self::EMBED_REGEX . '\s*|)' . self::getUrlRegex() . '/J';
 
-				$ruleWithRemapped = preg_replace_callback(
+				return preg_replace_callback(
 					$pattern,
-					function ( $match ) use ( $local, $remote ) {
-						$remapped = self::remapOne( $match['file'], $match['query'], $local, $remote, false );
+					function ( $match ) use ( $local, $remote, $embedData, $embedAll ) {
+						// For each url reference in the CSS, call remapOne()
+						// to insert either a remapped URL or an embedded data URI.
+						// We enable use of data URIs if both of these are true:
+						// 1. The PHP caller enabled the option,
+						// 2. and, the CSS declared `@embed` either above the rule
+						//    for all URLs inside that block, or above the individual
+						//    property for that one property.
+						$embedOne = $embedData && ( $embedAll || $match['embed'] );
+						$remapped = self::remapOne(
+							$match['file'],
+							$match['query'],
+							$local,
+							$remote,
+							$embedOne
+						);
 						return self::buildUrlValue( $remapped );
 					},
 					$rule
 				);
-
-				if ( $embedData ) {
-					$ruleWithEmbedded = preg_replace_callback(
-						$pattern,
-						function ( $match ) use ( $embedAll, $local, $remote ) {
-							$embed = $embedAll || $match['embed'];
-							$embedded = self::remapOne(
-								$match['file'],
-								$match['query'],
-								$local,
-								$remote,
-								$embed
-							);
-							return self::buildUrlValue( $embedded );
-						},
-						$rule
-					);
-				}
-
-				// @phan-suppress-next-line PhanPossiblyUndeclaredVariable
-				if ( !$embedData || $ruleWithEmbedded === $ruleWithRemapped ) {
-					// We're not embedding anything, or we tried to but the file is not embeddable
-					return $ruleWithRemapped;
-				} else {
-					// Use a data URI in place of the @embed comment.
-					// @phan-suppress-next-line PhanPossiblyUndeclaredVariable
-					return $ruleWithEmbedded;
-				}
 			}, $source );
 
 		// Re-insert comments
