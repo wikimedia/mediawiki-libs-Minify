@@ -35,7 +35,29 @@ class CSSMin {
 	private const PLACEHOLDER = "\x7fPLACEHOLDER\x7f";
 
 	/**
-	 * Internet Explorer data URI length limit. See encodeImageAsDataURI().
+	 * Maximum file size to embed in a stylesheet.
+	 *
+	 * Use of `@embed` is generally discouraged (see T121730, T118514, and T120984).
+	 *
+	 * In a nut shell: Stylesheets, and thus any images we embed inside of them,
+	 * are required to be fully downloaded by a browser before literally any content
+	 * or interface component can be rendered on-screen. Embedding an image means
+	 * you are saying it is more important to render this image than to render the
+	 * page content (or that it is undesirable to render even the first paragraph
+	 * of an article unless this image is also immediately there in the first paint).
+	 *
+	 * There are some cases where a small image can be worth embedding, for example
+	 * if the image's file size is comparable or smaller than to size of the URL from
+	 * which it would be lazy-loaded when CSS rules are applied. In that case, embedding
+	 * the file content in place of the web address could be an uncompromising win for
+	 * all users.
+	 *
+	 * To avoid mistakes and protect performance we put an arbitrary limit on this.
+	 * If a file is larger than this limit, it should probably be loaded using the
+	 * default CSS behaviour (by URL, without `@embed` instruction), or embedded as
+	 * SVG directly in the HTML response if it is such a vital part of the page.
+	 *
+	 * See encodeImageAsDataURI().
 	 */
 	private const DATA_URI_SIZE_LIMIT = 32768;
 
@@ -110,14 +132,12 @@ class CSSMin {
 	 * @param string $file Image file to encode.
 	 * @param string|null $type File's MIME type or null. If null, CSSMin will
 	 *     try to autodetect the type.
-	 * @param bool $ie8Compat By default, a data URI will only be produced if it can be made short
-	 *     enough to fit in Internet Explorer 8 (and earlier) URI length limit (32,768 bytes). Pass
-	 *     `false` to remove this limitation.
 	 * @return string|false Image contents encoded as a data URI or false.
 	 */
-	public static function encodeImageAsDataURI( $file, $type = null, $ie8Compat = true ) {
-		// Fast-fail for files that definitely exceed the maximum data URI length
-		if ( $ie8Compat && filesize( $file ) >= self::DATA_URI_SIZE_LIMIT ) {
+	public static function encodeImageAsDataURI( $file, $type = null ) {
+		// Fast-fail for files that exceed the maximum data URI length
+		if ( filesize( $file ) >= self::DATA_URI_SIZE_LIMIT ) {
+			trigger_error( "File exceeds limit for embedded files: $file", E_USER_WARNING );
 			return false;
 		}
 
@@ -128,7 +148,7 @@ class CSSMin {
 			return false;
 		}
 
-		return self::encodeStringAsDataURI( file_get_contents( $file ), $type, $ie8Compat );
+		return self::encodeStringAsDataURI( file_get_contents( $file ), $type );
 	}
 
 	/**
@@ -139,12 +159,10 @@ class CSSMin {
 	 * @since 2.0.0
 	 * @param string $contents File contents to encode.
 	 * @param string $type File's MIME type.
-	 * @param bool $ie8Compat See encodeImageAsDataURI().
-	 * @return string|false Image contents encoded as a data URI or false.
+	 * @return string Image contents encoded as a data URI or false.
 	 */
-	public static function encodeStringAsDataURI( $contents, $type, $ie8Compat = true ) {
+	public static function encodeStringAsDataURI( $contents, $type ) {
 		// Try #1: Non-encoded data URI
-
 		// Remove XML declaration, it's not needed with data URI usage
 		$contents = preg_replace( "/<\\?xml.*?\\?>/", '', $contents );
 		// The regular expression matches ASCII whitespace and printable characters.
@@ -166,21 +184,13 @@ class CSSMin {
 			$encoded = preg_replace( '/ {2,}/', ' ', $encoded );
 			// Remove leading and trailing spaces
 			$encoded = preg_replace( '/^ | $/', '', $encoded );
-
 			$uri = 'data:' . $type . ',' . $encoded;
-			if ( !$ie8Compat || strlen( $uri ) < self::DATA_URI_SIZE_LIMIT ) {
-				return $uri;
-			}
+			return $uri;
 		}
 
 		// Try #2: Encoded data URI
 		$uri = 'data:' . $type . ';base64,' . base64_encode( $contents );
-		if ( !$ie8Compat || strlen( $uri ) < self::DATA_URI_SIZE_LIMIT ) {
-			return $uri;
-		}
-
-		// A data URI couldn't be produced
-		return false;
+		return $uri;
 	}
 
 	/**
