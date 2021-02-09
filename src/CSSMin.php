@@ -136,8 +136,7 @@ class CSSMin {
 	 *
 	 * The URI will be base64-encoded for binary files or just percent-encoded otherwise.
 	 *
-	 * @since 1.25
-	 *
+	 * @since 2.0.0
 	 * @param string $contents File contents to encode.
 	 * @param string $type File's MIME type.
 	 * @param bool $ie8Compat See encodeImageAsDataURI().
