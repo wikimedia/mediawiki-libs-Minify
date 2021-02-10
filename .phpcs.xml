@@ -3,6 +3,10 @@
 	<rule ref="./vendor/mediawiki/mediawiki-codesniffer/MediaWiki">
 		<exclude name="MediaWiki.WhiteSpace.SpaceBeforeSingleLineComment.NewLineComment"/>
 		<exclude name="MediaWiki.Commenting.PropertyDocumentation.MissingDocumentationPrivate"/>
+		<exclude name="MediaWiki.Commenting.FunctionComment.MissingDocumentationPrivate"/>
+	</rule>
+	<rule ref="Generic.Files.LineLength.TooLong">
+		<exclude-pattern>*/tests/*\.php</exclude-pattern>
 	</rule>
 	<rule ref="Generic.PHP.NoSilencedErrors.Discouraged">
 		<exclude-pattern>*/tests/*\.php</exclude-pattern>
