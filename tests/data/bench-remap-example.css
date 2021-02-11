@@ -1,0 +1,21 @@
+/**
+ * Some comment
+ */
+
+.foo {
+   background: url(missing.png);
+}
+
+.foo {
+   background: url(large.png);
+}
+
+.foo {
+   /* @embed */
+   background: url(circle.svg);
+}
+
+.foo {
+   /* @embed */
+   background: url(green.gif);
+}
