@@ -4,6 +4,9 @@
 		<exclude name="MediaWiki.WhiteSpace.SpaceBeforeSingleLineComment.NewLineComment"/>
 		<exclude name="MediaWiki.Commenting.PropertyDocumentation.MissingDocumentationPrivate"/>
 	</rule>
+	<rule ref="Generic.PHP.NoSilencedErrors.Discouraged">
+		<exclude-pattern>*/tests/*\.php</exclude-pattern>
+	</rule>
 
 	<file>.</file>
 	<arg name="encoding" value="UTF-8"/>

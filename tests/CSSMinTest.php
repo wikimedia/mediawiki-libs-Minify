@@ -414,12 +414,23 @@ class CSSMinTest extends PHPUnit\Framework\TestCase {
 	 * @see testRemap for testing of funky parameters
 	 * @dataProvider provideRemapRemappingCases
 	 */
-	public function testRemapRemapping( $message, $input, $expectedOutput ) {
+	public function testRemapRemapping( $message, $input, $expectedOutput, $expectWarning = false ) {
 		$localPath = __DIR__ . '/data';
 		$remotePath = 'http://localhost/w';
 
-		$realOutput = CSSMin::remap( $input, $localPath, $remotePath );
-		$this->assertEquals( $expectedOutput, $realOutput, "CSSMin::remap: $message" );
+		if ( !$expectWarning ) {
+			$realOutput = CSSMin::remap( $input, $localPath, $remotePath );
+			$this->assertEquals( $expectedOutput, $realOutput, $message );
+		} else {
+			// First, at-call to ignore the warning and assert the output
+			$realOutput = @CSSMin::remap( $input, $localPath, $remotePath );
+			$this->assertEquals( $expectedOutput, $realOutput, $message );
+			// Second, call normally, and we expect the warning, which PHPUnit turns
+			// into an exception and thus must be the last check in the test.
+			$this->expectWarning();
+			$this->expectWarningMessageMatches( '/File exceeds limit.*/' );
+			CSSMin::remap( $input, $localPath, $remotePath );
+		}
 	}
 
 	public static function provideRemapRemappingCases() {
@@ -522,6 +533,7 @@ class CSSMinTest extends PHPUnit\Framework\TestCase {
 				'Can not embed large files',
 				'foo { /* @embed */ background: url(large.png); }',
 				"foo { background: url(http://localhost/w/large.png?e3d1f); }",
+				true,
 			],
 			[
 				'SVG files are embedded without base64 encoding and unnecessary IE 6 and 7 fallback',
@@ -548,6 +560,7 @@ class CSSMinTest extends PHPUnit\Framework\TestCase {
 				'Two embedded files in one rule (inline @embed), one too large',
 				'foo { background: /* @embed */ url(red.gif), /* @embed */ url(large.png); }',
 				"foo { background: url($red), url(http://localhost/w/large.png?e3d1f); }",
+				true,
 			],
 			[
 				'Practical example with some noise',
