@@ -345,10 +345,7 @@ class CSSMin {
 	 * @return bool
 	 */
 	protected static function isRemoteUrl( $maybeUrl ) {
-		if ( substr( $maybeUrl, 0, 2 ) === '//' || parse_url( $maybeUrl, PHP_URL_SCHEME ) ) {
-			return true;
-		}
-		return false;
+		return substr( $maybeUrl, 0, 2 ) === '//' || parse_url( $maybeUrl, PHP_URL_SCHEME );
 	}
 
 	/**
