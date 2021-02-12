@@ -502,3 +502,8 @@ class CSSMin {
 		);
 	}
 }
+
+/**
+ * @deprecated since 2.1.0 Use Wikimedia\Minify\CSSMin instead
+ */
+class_alias( CSSMin::class, 'CSSMin' );

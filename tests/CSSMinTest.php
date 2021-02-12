@@ -18,6 +18,10 @@ class CSSMinTest extends PHPUnit\Framework\TestCase {
 		parent::tearDown();
 	}
 
+	public function testAlias() {
+		$this->assertTrue( class_exists( \CSSMin::class ), 'Legacy global class alias' );
+	}
+
 	/**
 	 * @dataProvider providesReferencedFiles
 	 * @covers ::getLocalFileReferences
