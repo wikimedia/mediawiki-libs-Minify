@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.0 (2021-02-12)
+
+Added:
+
+* CSSMin: Add global class alias for `CSSMin` for MediaWiki compatibility.
+  This is deprecated on arrival and will be removed in a future major release.
+
 ## 2.0.0 (2021-02-08)
 
 This release requires PHP 7.2+, and drops support for Internet Explorer 6-10.
