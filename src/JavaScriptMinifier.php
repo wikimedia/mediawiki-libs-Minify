@@ -836,6 +836,16 @@ class JavaScriptMinifier {
 			$token = substr( $s, $pos, $end - $pos ); // so $end - $pos == strlen( $token )
 			$type = $tokenTypes[$token] ?? self::TYPE_LITERAL;
 
+			if (
+				$type === self::TYPE_LITERAL
+				&& ( $token === 'true' || $token === 'false' )
+				&& isset( $expressionStates[$state] )
+				&& $last !== '.'
+			) {
+				$token = ( $token === 'true' ) ? '!0' : '!1';
+				$ch = '!';
+			}
+
 			if ( $newlineFound && isset( $semicolon[$state][$type] ) ) {
 				// This token triggers the semicolon insertion mechanism of javascript. While we
 				// could add the ; token here ourselves, keeping the newline has a few advantages.
@@ -857,14 +867,6 @@ class JavaScriptMinifier {
 			} elseif ( $last === $ch && ( $ch === '+' || $ch === '-' || $ch === '/' ) ) {
 				$out .= ' ';
 				$lineLength++;
-			}
-			if (
-				$type === self::TYPE_LITERAL
-				&& ( $token === 'true' || $token === 'false' )
-				&& isset( $expressionStates[$state] )
-				&& $last !== '.'
-			) {
-				$token = ( $token === 'true' ) ? '!0' : '!1';
 			}
 
 			$out .= $token;

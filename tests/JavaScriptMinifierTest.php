@@ -192,7 +192,7 @@ class JavaScriptMinifierTest extends PHPUnit\Framework\TestCase {
 			[ "a.foo = false;", "a.foo=!1;" ],
 			[ "a.foo = bar ? false : true;", "a.foo=bar?!1:!0;" ],
 			[ "func( true, false )", "func(!0,!1)" ],
-			[ "function f() { return false; }", "function f(){return !1;}" ],
+			[ "function f() { return false; }", "function f(){return!1;}" ],
 		];
 	}
 
