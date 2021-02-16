@@ -52,20 +52,17 @@ class JavaScriptMinifier {
 	 */
 	private const STATEMENT                = 0;
 	private const CONDITION                = 1;
-	private const PROPERTY_ASSIGNMENT      = 2;
-	private const EXPRESSION               = 3;
-	private const EXPRESSION_NO_NL         = 4;
-	private const EXPRESSION_OP            = 5;
-	private const EXPRESSION_FUNC          = 6;
+	private const FUNC                     = 2;
+	private const PROPERTY_ASSIGNMENT      = 3;
+	private const EXPRESSION               = 4;
+	private const EXPRESSION_NO_NL         = 5;
+	private const EXPRESSION_OP            = 6;
 	private const EXPRESSION_TERNARY       = 7;
 	private const EXPRESSION_TERNARY_OP    = 8;
-	private const EXPRESSION_TERNARY_FUNC  = 9;
-	private const PAREN_EXPRESSION         = 10;
-	private const PAREN_EXPRESSION_OP      = 11;
-	private const PAREN_EXPRESSION_FUNC    = 12;
-	private const PROPERTY_EXPRESSION      = 13;
-	private const PROPERTY_EXPRESSION_OP   = 14;
-	private const PROPERTY_EXPRESSION_FUNC = 15;
+	private const PAREN_EXPRESSION         = 9;
+	private const PAREN_EXPRESSION_OP      = 10;
+	private const PROPERTY_EXPRESSION      = 11;
+	private const PROPERTY_EXPRESSION_OP   = 12;
 
 	/* Token types */
 	private const TYPE_UN_OP       = 101; // unary operators
@@ -341,7 +338,8 @@ class JavaScriptMinifier {
 					self::ACTION_GOTO => self::CONDITION,
 				],
 				self::TYPE_FUNC => [
-					self::ACTION_GOTO => self::CONDITION,
+					self::ACTION_PUSH => self::STATEMENT,
+					self::ACTION_GOTO => self::FUNC,
 				],
 				self::TYPE_LITERAL => [
 					self::ACTION_GOTO => self::EXPRESSION_OP,
@@ -353,6 +351,14 @@ class JavaScriptMinifier {
 				self::TYPE_PAREN_OPEN => [
 					self::ACTION_PUSH => self::STATEMENT,
 					self::ACTION_GOTO => self::PAREN_EXPRESSION,
+				],
+			],
+			// The state after the function keyword. Waits for {, then goes to STATEMENT.
+			// The function body's closing } will pop the stack, so the state to return to
+			// after the function should be pushed to the stack first
+			self::FUNC => [
+				self::TYPE_BRACE_OPEN => [
+					self::ACTION_GOTO => self::STATEMENT,
 				],
 			],
 			// Property assignment - This is an object literal declaration.
@@ -388,7 +394,8 @@ class JavaScriptMinifier {
 					self::ACTION_GOTO => self::PAREN_EXPRESSION,
 				],
 				self::TYPE_FUNC => [
-					self::ACTION_GOTO => self::EXPRESSION_FUNC,
+					self::ACTION_PUSH => self::EXPRESSION_OP,
+					self::ACTION_GOTO => self::FUNC,
 				],
 				self::TYPE_LITERAL => [
 					self::ACTION_GOTO => self::EXPRESSION_OP,
@@ -423,7 +430,8 @@ class JavaScriptMinifier {
 					self::ACTION_GOTO => self::PAREN_EXPRESSION,
 				],
 				self::TYPE_FUNC => [
-					self::ACTION_GOTO => self::EXPRESSION_FUNC,
+					self::ACTION_PUSH => self::EXPRESSION_OP,
+					self::ACTION_GOTO => self::FUNC,
 				],
 				self::TYPE_LITERAL => [
 					self::ACTION_GOTO => self::EXPRESSION_OP,
@@ -458,14 +466,6 @@ class JavaScriptMinifier {
 					self::ACTION_POP => true,
 				],
 			],
-			// The state after the function keyword. Waits for {, then goes to STATEMENT,
-			// then EXPRESSION_OP after the closing }
-			self::EXPRESSION_FUNC => [
-				self::TYPE_BRACE_OPEN => [
-					self::ACTION_PUSH => self::EXPRESSION_OP,
-					self::ACTION_GOTO => self::STATEMENT,
-				],
-			],
 			// Expression after a ? . This differs from EXPRESSION because a : ends the ternary
 			// rather than starting STATEMENT (outside a ternary, : comes after a goto label)
 			// The actual rule for : ending the ternary is in EXPRESSION_TERNARY_OP.
@@ -479,7 +479,8 @@ class JavaScriptMinifier {
 					self::ACTION_GOTO => self::PAREN_EXPRESSION,
 				],
 				self::TYPE_FUNC => [
-					self::ACTION_GOTO => self::EXPRESSION_TERNARY_FUNC,
+					self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
+					self::ACTION_GOTO => self::FUNC,
 				],
 				self::TYPE_LITERAL => [
 					self::ACTION_GOTO => self::EXPRESSION_TERNARY_OP,
@@ -508,13 +509,6 @@ class JavaScriptMinifier {
 					self::ACTION_POP => true,
 				],
 			],
-			// Like EXPRESSION_FUNC, but for ternaries, see EXPRESSION_TERNARY
-			self::EXPRESSION_TERNARY_FUNC => [
-				self::TYPE_BRACE_OPEN => [
-					self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
-					self::ACTION_GOTO => self::STATEMENT,
-				],
-			],
 			// Expression inside parentheses. Like EXPRESSION, except that ) ends this state
 			// This differs from EXPRESSION because semicolon insertion can't happen here
 			self::PAREN_EXPRESSION => [
@@ -530,7 +524,8 @@ class JavaScriptMinifier {
 					self::ACTION_POP => true,
 				],
 				self::TYPE_FUNC => [
-					self::ACTION_GOTO => self::PAREN_EXPRESSION_FUNC,
+					self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
+					self::ACTION_GOTO => self::FUNC,
 				],
 				self::TYPE_LITERAL => [
 					self::ACTION_GOTO => self::PAREN_EXPRESSION_OP,
@@ -564,13 +559,6 @@ class JavaScriptMinifier {
 					self::ACTION_POP => true,
 				],
 			],
-			// Like EXPRESSION_FUNC, but in parentheses, see PAREN_EXPRESSION
-			self::PAREN_EXPRESSION_FUNC => [
-				self::TYPE_BRACE_OPEN => [
-					self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
-					self::ACTION_GOTO => self::STATEMENT,
-				],
-			],
 			// Expression as the value of a key in an object literal. Like EXPRESSION, except that
 			// a comma (in PROPERTY_EXPRESSION_OP) goes to PROPERTY_ASSIGNMENT instead
 			self::PROPERTY_EXPRESSION => [
@@ -586,7 +574,8 @@ class JavaScriptMinifier {
 					self::ACTION_GOTO => self::PAREN_EXPRESSION,
 				],
 				self::TYPE_FUNC => [
-					self::ACTION_GOTO => self::PROPERTY_EXPRESSION_FUNC,
+					self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
+					self::ACTION_GOTO => self::FUNC,
 				],
 				self::TYPE_LITERAL => [
 					self::ACTION_GOTO => self::PROPERTY_EXPRESSION_OP,
@@ -616,13 +605,6 @@ class JavaScriptMinifier {
 				self::TYPE_PAREN_OPEN => [
 					self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
 					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-			],
-			// Like EXPRESSION_FUNC, but in a property expression, see PROPERTY_EXPRESSION
-			self::PROPERTY_EXPRESSION_FUNC => [
-				self::TYPE_BRACE_OPEN => [
-					self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
-					self::ACTION_GOTO => self::STATEMENT,
 				],
 			],
 		];
