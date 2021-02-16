@@ -64,6 +64,7 @@ class JavaScriptMinifierTest extends PHPUnit\Framework\TestCase {
 			// Semicolon insertion
 			[ "(function(){return\nx;})", "(function(){return\nx;})" ],
 			[ "throw\nx;", "throw\nx;" ],
+			[ "throw new\nError('x');", "throw new Error('x');" ],
 			[ "while(p){continue\nx;}", "while(p){continue\nx;}" ],
 			[ "while(p){break\nx;}", "while(p){break\nx;}" ],
 			[ "var\nx;", "var x;" ],
@@ -339,6 +340,27 @@ JAVASCRIPT
 					'}',
 					')',
 					';',
+				]
+			],
+			[
+				// No newline after throw, but a newline after "throw new" is OK
+				'throw new Error( "yikes" ); function f () { return ++x; }',
+				[
+					'throw new',
+					'Error',
+					'(',
+					'"yikes"',
+					')',
+					';',
+					'function',
+					'f',
+					'(',
+					')',
+					'{',
+					'return++',
+					'x',
+					';',
+					'}',
 				]
 			],
 		];

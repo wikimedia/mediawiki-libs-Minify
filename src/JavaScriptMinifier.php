@@ -396,8 +396,18 @@ class JavaScriptMinifier {
 			],
 			// An expression immediately after return/throw/break/continue, where a newline
 			// is not allowed. This state is identical to EXPRESSION, except that semicolon
-			// insertion can happen here.
+			// insertion can happen here, and we never stay here: in cases where EXPRESSION would
+			// do nothing, we go to EXPRESSION.
 			self::EXPRESSION_NO_NL => [
+				self::TYPE_UN_OP => [
+					self::ACTION_GOTO => self::EXPRESSION,
+				],
+				self::TYPE_INCR_OP => [
+					self::ACTION_GOTO => self::EXPRESSION,
+				],
+				self::TYPE_ADD_OP => [
+					self::ACTION_GOTO => self::EXPRESSION,
+				],
 				self::TYPE_SEMICOLON => [
 					self::ACTION_GOTO => self::STATEMENT,
 				],
