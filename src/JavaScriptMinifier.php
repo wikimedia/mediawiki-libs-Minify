@@ -662,6 +662,15 @@ class JavaScriptMinifier {
 			self::PROPERTY_EXPRESSION_OP => true
 		];
 
+		// States that are like EXPRESSION, where true and false can be minified to !1 and !0
+		$expressionStates = [
+			self::EXPRESSION           => true,
+			self::EXPRESSION_NO_NL     => true,
+			self::EXPRESSION_TERNARY   => true,
+			self::PAREN_EXPRESSION     => true,
+			self::PROPERTY_EXPRESSION  => true,
+		];
+
 		// Here's where the minifying takes place: Loop through the input, looking for tokens
 		// and output them to $out, taking actions to the above defined rules when appropriate.
 		$out = '';
@@ -870,7 +879,7 @@ class JavaScriptMinifier {
 			if (
 				$type === self::TYPE_LITERAL
 				&& ( $token === 'true' || $token === 'false' )
-				&& ( $state === self::EXPRESSION || $state === self::PROPERTY_EXPRESSION )
+				&& isset( $expressionStates[$state] )
 				&& $last !== '.'
 			) {
 				$token = ( $token === 'true' ) ? '!0' : '!1';
