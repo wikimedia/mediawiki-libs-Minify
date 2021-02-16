@@ -44,25 +44,26 @@ namespace Wikimedia\Minify;
 class JavaScriptMinifier {
 
 	/* Parsing states.
-	 * The state machine is only necessary to decide whether to parse a slash as division
-	 * operator or as regexp literal.
+	 * The state machine is necessary to decide whether to parse a slash as division
+	 * operator or as regexp literal, and to know where semicolon insertion is possible.
 	 * States are named after the next expected item. We only distinguish states when the
-	 * distinction is relevant for our purpose.
+	 * distinction is relevant for our purpose. The meaning of these states is documented
+	 * in $model below.
 	 */
 	private const STATEMENT                = 0;
 	private const CONDITION                = 1;
 	private const PROPERTY_ASSIGNMENT      = 2;
 	private const EXPRESSION               = 3;
-	private const EXPRESSION_NO_NL         = 4; // only relevant for semicolon insertion
+	private const EXPRESSION_NO_NL         = 4;
 	private const EXPRESSION_OP            = 5;
 	private const EXPRESSION_FUNC          = 6;
-	private const EXPRESSION_TERNARY       = 7; // used to determine the role of a colon
+	private const EXPRESSION_TERNARY       = 7;
 	private const EXPRESSION_TERNARY_OP    = 8;
 	private const EXPRESSION_TERNARY_FUNC  = 9;
-	private const PAREN_EXPRESSION         = 10; // expression which is not on the top level
+	private const PAREN_EXPRESSION         = 10;
 	private const PAREN_EXPRESSION_OP      = 11;
 	private const PAREN_EXPRESSION_FUNC    = 12;
-	private const PROPERTY_EXPRESSION      = 13; // expression which is within an object literal
+	private const PROPERTY_EXPRESSION      = 13;
 	private const PROPERTY_EXPRESSION_OP   = 14;
 	private const PROPERTY_EXPRESSION_FUNC = 15;
 
@@ -85,9 +86,9 @@ class JavaScriptMinifier {
 	private const TYPE_FUNC        = 116; // keywords: function
 	private const TYPE_LITERAL     = 117; // all literals, identifiers and unrecognised tokens
 
-	private const ACTION_GOTO = 201;
-	private const ACTION_PUSH = 202;
-	private const ACTION_POP = 203;
+	private const ACTION_GOTO = 201; // Go to another state
+	private const ACTION_PUSH = 202; // Push a state to the stack
+	private const ACTION_POP = 203; // Pop the state from the top of the stack, and go to that state
 
 	// Sanity limit to avoid excessive memory usage
 	private const STACK_LIMIT = 1000;
@@ -151,18 +152,18 @@ class JavaScriptMinifier {
 		// $tokenTypes : Map keywords and operators to their corresponding token type
 		$tokenTypes = [
 			// ECMAScript 5.1 § 11.4 Unary Operators
-			// ECMAScript 5.1 § 11.6 Additive Operators
 			// UnaryExpression includes PostfixExpression, which includes 'new'.
 			'new'        => self::TYPE_UN_OP,
 			'delete'     => self::TYPE_UN_OP,
 			'void'       => self::TYPE_UN_OP,
 			'typeof'     => self::TYPE_UN_OP,
-			'++'         => self::TYPE_INCR_OP,
-			'--'         => self::TYPE_INCR_OP,
-			'+'          => self::TYPE_ADD_OP,
-			'-'          => self::TYPE_ADD_OP,
 			'~'          => self::TYPE_UN_OP,
 			'!'          => self::TYPE_UN_OP,
+			'++'         => self::TYPE_INCR_OP,
+			'--'         => self::TYPE_INCR_OP,
+			// ECMAScript 5.1 § 11.6 Additive Operators (can be unary or binary)
+			'+'          => self::TYPE_ADD_OP,
+			'-'          => self::TYPE_ADD_OP,
 			// ECMAScript 5.1 § 11.5 Multiplicative Operators
 			'*'          => self::TYPE_BIN_OP,
 			'/'          => self::TYPE_BIN_OP,
@@ -176,13 +177,13 @@ class JavaScriptMinifier {
 			'>'          => self::TYPE_BIN_OP,
 			'<='         => self::TYPE_BIN_OP,
 			'>='         => self::TYPE_BIN_OP,
+			'instanceof' => self::TYPE_BIN_OP,
+			'in'         => self::TYPE_BIN_OP,
 			// ECMAScript 5.1 § 11.9 Equality Operators
 			'=='         => self::TYPE_BIN_OP,
 			'!='         => self::TYPE_BIN_OP,
 			'==='        => self::TYPE_BIN_OP,
 			'!=='        => self::TYPE_BIN_OP,
-			'instanceof' => self::TYPE_BIN_OP,
-			'in'         => self::TYPE_BIN_OP,
 			// ECMAScript 5.1 § 11.10 Binary Bitwise Operators
 			'&'          => self::TYPE_BIN_OP,
 			'^'          => self::TYPE_BIN_OP,
@@ -346,6 +347,8 @@ class JavaScriptMinifier {
 					self::ACTION_GOTO => self::EXPRESSION_OP,
 				],
 			],
+			// The state after if/catch/while/for/switch/with
+			// Waits for an expression in parentheses, then goes to STATEMENT
 			self::CONDITION => [
 				self::TYPE_PAREN_OPEN => [
 					self::ACTION_PUSH => self::STATEMENT,
@@ -366,6 +369,9 @@ class JavaScriptMinifier {
 					self::ACTION_POP => true,
 				],
 			],
+			// Place in an expression where we expect an operand or a unary operator: the start
+			// of an expression or after an operator. Note that unary operators (including INCR_OP
+			// and ADD_OP) cause us to stay in this state, while operands take us to EXPRESSION_OP
 			self::EXPRESSION => [
 				self::TYPE_SEMICOLON => [
 					self::ACTION_GOTO => self::STATEMENT,
@@ -388,6 +394,9 @@ class JavaScriptMinifier {
 					self::ACTION_GOTO => self::EXPRESSION_OP,
 				],
 			],
+			// An expression immediately after return/throw/break/continue, where a newline
+			// is not allowed. This state is identical to EXPRESSION, except that semicolon
+			// insertion can happen here.
 			self::EXPRESSION_NO_NL => [
 				self::TYPE_SEMICOLON => [
 					self::ACTION_GOTO => self::STATEMENT,
@@ -410,6 +419,7 @@ class JavaScriptMinifier {
 					self::ACTION_GOTO => self::EXPRESSION_OP,
 				],
 			],
+			// Place in an expression after an operand, where we expect an operator
 			self::EXPRESSION_OP => [
 				self::TYPE_BIN_OP => [
 					self::ACTION_GOTO => self::EXPRESSION,
@@ -438,12 +448,17 @@ class JavaScriptMinifier {
 					self::ACTION_POP => true,
 				],
 			],
+			// The state after the function keyword. Waits for {, then goes to STATEMENT,
+			// then EXPRESSION_OP after the closing }
 			self::EXPRESSION_FUNC => [
 				self::TYPE_BRACE_OPEN => [
 					self::ACTION_PUSH => self::EXPRESSION_OP,
 					self::ACTION_GOTO => self::STATEMENT,
 				],
 			],
+			// Expression after a ? . This differs from EXPRESSION because a : ends the ternary
+			// rather than starting STATEMENT (outside a ternary, : comes after a goto label)
+			// The actual rule for : ending the ternary is in EXPRESSION_TERNARY_OP.
 			self::EXPRESSION_TERNARY => [
 				self::TYPE_BRACE_OPEN => [
 					self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
@@ -460,6 +475,7 @@ class JavaScriptMinifier {
 					self::ACTION_GOTO => self::EXPRESSION_TERNARY_OP,
 				],
 			],
+			// Like EXPRESSION_OP, but for ternaries, see EXPRESSION_TERNARY
 			self::EXPRESSION_TERNARY_OP => [
 				self::TYPE_BIN_OP => [
 					self::ACTION_GOTO => self::EXPRESSION_TERNARY,
@@ -482,12 +498,15 @@ class JavaScriptMinifier {
 					self::ACTION_POP => true,
 				],
 			],
+			// Like EXPRESSION_FUNC, but for ternaries, see EXPRESSION_TERNARY
 			self::EXPRESSION_TERNARY_FUNC => [
 				self::TYPE_BRACE_OPEN => [
 					self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
 					self::ACTION_GOTO => self::STATEMENT,
 				],
 			],
+			// Expression inside parentheses. Like EXPRESSION, except that ) ends this state
+			// This differs from EXPRESSION because semicolon insertion can't happen here
 			self::PAREN_EXPRESSION => [
 				self::TYPE_BRACE_OPEN => [
 					self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
@@ -507,6 +526,7 @@ class JavaScriptMinifier {
 					self::ACTION_GOTO => self::PAREN_EXPRESSION_OP,
 				],
 			],
+			// Like EXPRESSION_OP, but in parentheses, see PAREN_EXPRESSION
 			self::PAREN_EXPRESSION_OP => [
 				self::TYPE_BIN_OP => [
 					self::ACTION_GOTO => self::PAREN_EXPRESSION,
@@ -534,13 +554,15 @@ class JavaScriptMinifier {
 					self::ACTION_POP => true,
 				],
 			],
+			// Like EXPRESSION_FUNC, but in parentheses, see PAREN_EXPRESSION
 			self::PAREN_EXPRESSION_FUNC => [
 				self::TYPE_BRACE_OPEN => [
 					self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
 					self::ACTION_GOTO => self::STATEMENT,
 				],
 			],
-			// Property expression - The value of a key in an object literal.
+			// Expression as the value of a key in an object literal. Like EXPRESSION, except that
+			// a comma (in PROPERTY_EXPRESSION_OP) goes to PROPERTY_ASSIGNMENT instead
 			self::PROPERTY_EXPRESSION => [
 				self::TYPE_BRACE_OPEN => [
 					self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
@@ -560,6 +582,7 @@ class JavaScriptMinifier {
 					self::ACTION_GOTO => self::PROPERTY_EXPRESSION_OP,
 				],
 			],
+			// Like EXPRESSION_OP, but in a property expression, see PROPERTY_EXPRESSION
 			self::PROPERTY_EXPRESSION_OP => [
 				self::TYPE_BIN_OP => [
 					self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
@@ -585,6 +608,7 @@ class JavaScriptMinifier {
 					self::ACTION_GOTO => self::PAREN_EXPRESSION,
 				],
 			],
+			// Like EXPRESSION_FUNC, but in a property expression, see PROPERTY_EXPRESSION
 			self::PROPERTY_EXPRESSION_FUNC => [
 				self::TYPE_BRACE_OPEN => [
 					self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
@@ -593,7 +617,8 @@ class JavaScriptMinifier {
 			],
 		];
 
-		// $semicolon : Rules for when a semicolon insertion is appropriate
+		// Rules for when a semicolon insertion is appropriate. Semicolon insertion happens if we
+		// are in one of these states, and encounter one of these tokens preceded by a newline
 		$semicolon = [
 			self::EXPRESSION_NO_NL => [
 				self::TYPE_UN_OP => true,
@@ -619,7 +644,7 @@ class JavaScriptMinifier {
 			]
 		];
 
-		// $divStates : Contains all states that can be followed by a division operator
+		// States in which a / is a division operator. In all other states, it's the start of a regex
 		$divStates = [
 			self::EXPRESSION_OP          => true,
 			self::EXPRESSION_TERNARY_OP  => true,
