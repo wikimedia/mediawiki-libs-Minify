@@ -124,853 +124,956 @@ class JavaScriptMinifier {
 	 */
 	private static $maxLineLength = 1000;
 
+	private static $expandedStates = false;
+
 	/**
-	 * Returns minified JavaScript code.
+	 * @var array $opChars
 	 *
-	 * @param string $s JavaScript code to minify
-	 * @return string|bool Minified code or false on failure
+	 * Characters which can be combined without whitespace between them.
 	 */
-	public static function minify( $s ) {
-		// First we declare a few tables that contain our parsing rules
+	private static $opChars = [
+		// ECMAScript 6.0 § 11.7 Punctuators
+		// Unlike the spec, these are individual symbols, not sequences.
+		'{' => true,
+		'}' => true,
+		'(' => true,
+		')' => true,
+		'[' => true,
+		']' => true,
+		'.' => true,
+		';' => true,
+		',' => true,
+		'<' => true,
+		'>' => true,
+		'=' => true,
+		'!' => true,
+		'+' => true,
+		'-' => true,
+		'*' => true,
+		'%' => true,
+		'&' => true,
+		'|' => true,
+		'^' => true,
+		'~' => true,
+		'?' => true,
+		':' => true,
+		'/' => true,
+		// ECMAScript 6.0 § 11.8.4 String Literals
+		'"' => true,
+		"'" => true,
+		// ECMAScript 6.0 § 11.8.6 Template Literal Lexical Components
+		'`' => true,
+	];
 
-		// $opChars : Characters which can be combined without whitespace between them.
-		$opChars = [
-			// ECMAScript 6.0 § 11.7 Punctuators
-			// Unlike the spec, these are individual symbols, not sequences.
-			'{' => true,
-			'}' => true,
-			'(' => true,
-			')' => true,
-			'[' => true,
-			']' => true,
-			'.' => true,
-			';' => true,
-			',' => true,
-			'<' => true,
-			'>' => true,
-			'=' => true,
-			'!' => true,
-			'+' => true,
-			'-' => true,
-			'*' => true,
-			'%' => true,
-			'&' => true,
-			'|' => true,
-			'^' => true,
-			'~' => true,
-			'?' => true,
-			':' => true,
-			'/' => true,
-			// ECMAScript 6.0 § 11.8.4 String Literals
-			'"' => true,
-			"'" => true,
-			// ECMAScript 6.0 § 11.8.6 Template Literal Lexical Components
-			'`' => true,
-		];
+	/**
+	 * @var array $tokenTypes
+	 *
+	 * Tokens and their types.
+	 */
+	private static $tokenTypes = [
+		// ECMAScript 6.0 § 12.5 Unary Operators
+		// UnaryExpression includes PostfixExpression, which includes 'new'.
+		'new'        => self::TYPE_UN_OP,
+		'delete'     => self::TYPE_UN_OP,
+		'void'       => self::TYPE_UN_OP,
+		'typeof'     => self::TYPE_UN_OP,
+		'~'          => self::TYPE_UN_OP,
+		'!'          => self::TYPE_UN_OP,
+		// ECMAScript 6.0 § 12.2 Primary Expression, among others
+		'...'        => self::TYPE_UN_OP,
+		// ECMAScript 6.0 § 12.7 Additive Operators
+		'++'         => self::TYPE_INCR_OP,
+		'--'         => self::TYPE_INCR_OP,
+		'+'          => self::TYPE_ADD_OP,
+		'-'          => self::TYPE_ADD_OP,
+		// ECMAScript 6.0 § 12.6 Multiplicative Operators
+		'*'          => self::TYPE_BIN_OP,
+		'/'          => self::TYPE_BIN_OP,
+		'%'          => self::TYPE_BIN_OP,
+		// ECMAScript 6.0 § 12.8 Bitwise Shift Operators
+		'<<'         => self::TYPE_BIN_OP,
+		'>>'         => self::TYPE_BIN_OP,
+		'>>>'        => self::TYPE_BIN_OP,
+		// ECMAScript 6.0 § 12.9 Relational Operators
+		'<'          => self::TYPE_BIN_OP,
+		'>'          => self::TYPE_BIN_OP,
+		'<='         => self::TYPE_BIN_OP,
+		'>='         => self::TYPE_BIN_OP,
+		'instanceof' => self::TYPE_BIN_OP,
+		'in'         => self::TYPE_BIN_OP,
+		// ECMAScript 6.0 § 12.10 Equality Operators
+		'=='         => self::TYPE_BIN_OP,
+		'!='         => self::TYPE_BIN_OP,
+		'==='        => self::TYPE_BIN_OP,
+		'!=='        => self::TYPE_BIN_OP,
+		// ECMAScript 6.0 § 12.11 Binary Bitwise Operators
+		'&'          => self::TYPE_BIN_OP,
+		'^'          => self::TYPE_BIN_OP,
+		'|'          => self::TYPE_BIN_OP,
+		// ECMAScript 6.0 § 12.12 Binary Logical Operators
+		'&&'         => self::TYPE_BIN_OP,
+		'||'         => self::TYPE_BIN_OP,
+		// ECMAScript 6.0 § 12.13 Conditional Operator
+		// Also known as ternary.
+		'?'          => self::TYPE_HOOK,
+		':'          => self::TYPE_COLON,
+		// ECMAScript 6.0 § 12.14 Assignment Operators
+		'='          => self::TYPE_BIN_OP,
+		'*='         => self::TYPE_BIN_OP,
+		'/='         => self::TYPE_BIN_OP,
+		'%='         => self::TYPE_BIN_OP,
+		'+='         => self::TYPE_BIN_OP,
+		'-='         => self::TYPE_BIN_OP,
+		'<<='        => self::TYPE_BIN_OP,
+		'>>='        => self::TYPE_BIN_OP,
+		'>>>='       => self::TYPE_BIN_OP,
+		'&='         => self::TYPE_BIN_OP,
+		'^='         => self::TYPE_BIN_OP,
+		'|='         => self::TYPE_BIN_OP,
+		// ECMAScript 6.0 § 12.15 Comma Operator
+		','          => self::TYPE_COMMA,
 
-		// $tokenTypes : Map keywords and operators to their corresponding token type
-		$tokenTypes = [
-			// ECMAScript 6.0 § 12.5 Unary Operators
-			// UnaryExpression includes PostfixExpression, which includes 'new'.
-			'new'        => self::TYPE_UN_OP,
-			'delete'     => self::TYPE_UN_OP,
-			'void'       => self::TYPE_UN_OP,
-			'typeof'     => self::TYPE_UN_OP,
-			'~'          => self::TYPE_UN_OP,
-			'!'          => self::TYPE_UN_OP,
-			// ECMAScript 6.0 § 12.2 Primary Expression, among others
-			'...'        => self::TYPE_UN_OP,
-			// ECMAScript 6.0 § 12.7 Additive Operators
-			'++'         => self::TYPE_INCR_OP,
-			'--'         => self::TYPE_INCR_OP,
-			'+'          => self::TYPE_ADD_OP,
-			'-'          => self::TYPE_ADD_OP,
-			// ECMAScript 6.0 § 12.6 Multiplicative Operators
-			'*'          => self::TYPE_BIN_OP,
-			'/'          => self::TYPE_BIN_OP,
-			'%'          => self::TYPE_BIN_OP,
-			// ECMAScript 6.0 § 12.8 Bitwise Shift Operators
-			'<<'         => self::TYPE_BIN_OP,
-			'>>'         => self::TYPE_BIN_OP,
-			'>>>'        => self::TYPE_BIN_OP,
-			// ECMAScript 6.0 § 12.9 Relational Operators
-			'<'          => self::TYPE_BIN_OP,
-			'>'          => self::TYPE_BIN_OP,
-			'<='         => self::TYPE_BIN_OP,
-			'>='         => self::TYPE_BIN_OP,
-			'instanceof' => self::TYPE_BIN_OP,
-			'in'         => self::TYPE_BIN_OP,
-			// ECMAScript 6.0 § 12.10 Equality Operators
-			'=='         => self::TYPE_BIN_OP,
-			'!='         => self::TYPE_BIN_OP,
-			'==='        => self::TYPE_BIN_OP,
-			'!=='        => self::TYPE_BIN_OP,
-			// ECMAScript 6.0 § 12.11 Binary Bitwise Operators
-			'&'          => self::TYPE_BIN_OP,
-			'^'          => self::TYPE_BIN_OP,
-			'|'          => self::TYPE_BIN_OP,
-			// ECMAScript 6.0 § 12.12 Binary Logical Operators
-			'&&'         => self::TYPE_BIN_OP,
-			'||'         => self::TYPE_BIN_OP,
-			// ECMAScript 6.0 § 12.13 Conditional Operator
-			// Also known as ternary.
-			'?'          => self::TYPE_HOOK,
-			':'          => self::TYPE_COLON,
-			// ECMAScript 6.0 § 12.14 Assignment Operators
-			'='          => self::TYPE_BIN_OP,
-			'*='         => self::TYPE_BIN_OP,
-			'/='         => self::TYPE_BIN_OP,
-			'%='         => self::TYPE_BIN_OP,
-			'+='         => self::TYPE_BIN_OP,
-			'-='         => self::TYPE_BIN_OP,
-			'<<='        => self::TYPE_BIN_OP,
-			'>>='        => self::TYPE_BIN_OP,
-			'>>>='       => self::TYPE_BIN_OP,
-			'&='         => self::TYPE_BIN_OP,
-			'^='         => self::TYPE_BIN_OP,
-			'|='         => self::TYPE_BIN_OP,
-			// ECMAScript 6.0 § 12.15 Comma Operator
-			','          => self::TYPE_COMMA,
-
-			// The keywords that disallow LineTerminator before their
-			// (sometimes optional) Expression or Identifier.
-			//
-			//    keyword ;
-			//    keyword [no LineTerminator here] Identifier ;
-			//    keyword [no LineTerminator here] Expression ;
-			//
-			// See also ECMAScript 6.0 § 11.9.1 Rules of Automatic Semicolon Insertion
-			'continue'   => self::TYPE_RETURN,
-			'break'      => self::TYPE_RETURN,
-			'return'     => self::TYPE_RETURN,
-			'throw'      => self::TYPE_RETURN,
-			// yield is only a keyword inside generator functions, otherwise it's an identifier
-			// This is handled with the negative states hack: if the state is negative, TYPE_YIELD
-			// is treated as TYPE_RETURN, if it's positive it's treated as TYPE_LITERAL
-			'yield'      => self::TYPE_YIELD,
-
-			// The keywords require a parenthesised Expression or Identifier
-			// before the next Statement.
-			//
-			//     keyword ( Expression ) Statement
-			//     keyword ( Identifier ) Statement
-			//
-			// See also ECMAScript 6.0:
-			// - § 13.6 The if Statement
-			// - § 13.7 Iteration Statements (do, while, for)
-			// - § 12.10 The with Statement
-			// - § 12.11 The switch Statement
-			// - § 12.13 The throw Statement
-			'if'         => self::TYPE_IF,
-			'catch'      => self::TYPE_IF,
-			'while'      => self::TYPE_IF,
-			'for'        => self::TYPE_IF,
-			'switch'     => self::TYPE_IF,
-			'with'       => self::TYPE_IF,
-
-			// The keywords followed by a Statement, Expression, or Block.
-			//
-			//     else Statement
-			//     do Statement
-			//     case Expression
-			//     try Block
-			//     finally Block
-			//
-			// See also ECMAScript 6.0:
-			// - § 13.6 The if Statement (else)
-			// - § 13.7 Iteration Statements (do, while, for)
-			// - § 13.12 The switch Statement (case)
-			// - § 13.15 The try Statement
-			'else'       => self::TYPE_DO,
-			'do'         => self::TYPE_DO,
-			'case'       => self::TYPE_DO,
-			'try'        => self::TYPE_DO,
-			'finally'    => self::TYPE_DO,
-
-			// Keywords followed by a variable declaration
-			// This is different from the group above, because a { begins
-			// object destructuring, rather than a block
-			'var'        => self::TYPE_VAR,
-			'let'        => self::TYPE_VAR,
-			'const'      => self::TYPE_VAR,
-
-			// Import and export
-			'import'     => self::TYPE_IMPORT_EXPORT,
-			'export'     => self::TYPE_IMPORT_EXPORT,
-
-			// ECMAScript 6.0 § 14.1 Function Definitions
-			'function'   => self::TYPE_FUNC,
-			// ECMAScript 6.0 § 14.2 Arrow Function Definitions
-			'=>'         => self::TYPE_ARROW,
-
-			// Class declaration or expression:
-			//     class Identifier { ClassBody }
-			//     class { ClassBody }
-			//     class Identifier extends Expression { ClassBody }
-			//     class extends Expression { ClassBody }
-			'class'      => self::TYPE_CLASS,
-
-			// Can be one of:
-			// - DecimalLiteral (ECMAScript 6.0 § 11.8.3 Numeric Literals)
-			// - MemberExpression (ECMAScript 6.0 § 12.3 Left-Hand-Side Expressions)
-			'.'          => self::TYPE_BIN_OP,
-
-			// Can be one of:
-			// - Block (ECMAScript 6.0 § 13.2 Block)
-			// - ObjectLiteral (ECMAScript 6.0 § 12.2 Primary Expression)
-			'{'          => self::TYPE_BRACE_OPEN,
-			'}'          => self::TYPE_BRACE_CLOSE,
-
-			// Can be one of:
-			// - Parenthesised Identifier or Expression after a
-			//   TYPE_IF or TYPE_FUNC keyword.
-			// - PrimaryExpression (ECMAScript 6.0 § 12.2 Primary Expression)
-			// - CallExpression (ECMAScript 6.0 § 12.3 Left-Hand-Side Expressions)
-			// - Beginning or an ArrowFunction (ECMAScript 6.0 § 14.2 Arrow Function Definitions)
-			'('          => self::TYPE_PAREN_OPEN,
-			')'          => self::TYPE_PAREN_CLOSE,
-
-			// Can be one of:
-			// - ArrayLiteral (ECMAScript 6.0 § 12.2 Primary Expressions)
-			// - ComputedPropertyName (ECMAScript 6.0 § 12.2.6 Object Initializer)
-			'['          => self::TYPE_PAREN_OPEN,
-			']'          => self::TYPE_PAREN_CLOSE,
-
-			// Can be one of:
-			// - End of any statement
-			// - EmptyStatement (ECMAScript 6.0 § 13.4 Empty Statement)
-			';'          => self::TYPE_SEMICOLON,
-		];
-
-		// $model : This is the main table for our state machine. For every state/token pair
-		//          the desired action is defined.
+		// The keywords that disallow LineTerminator before their
+		// (sometimes optional) Expression or Identifier.
 		//
-		// The state pushed onto the stack by ACTION_PUSH will be returned to by ACTION_POP.
+		//    keyword ;
+		//    keyword [no LineTerminator here] Identifier ;
+		//    keyword [no LineTerminator here] Expression ;
 		//
-		// A given state/token pair MAY NOT specify both ACTION_POP and ACTION_GOTO.
-		// In the event of such mistake, ACTION_POP is used instead of ACTION_GOTO.
-		$model = [
-			// Statement - This is the initial state.
-			self::STATEMENT => [
-				self::TYPE_UN_OP => [
-					self::ACTION_GOTO => self::EXPRESSION,
-				],
-				self::TYPE_INCR_OP => [
-					self::ACTION_GOTO => self::EXPRESSION,
-				],
-				self::TYPE_ADD_OP => [
-					self::ACTION_GOTO => self::EXPRESSION,
-				],
-				self::TYPE_BRACE_OPEN => [
-					// Use of '{' in statement context, creates a Block.
-					self::ACTION_PUSH => self::STATEMENT,
-				],
-				self::TYPE_BRACE_CLOSE => [
-					// Ends a Block
-					self::ACTION_POP => true,
-				],
-				self::TYPE_PAREN_OPEN => [
-					self::ACTION_PUSH => self::EXPRESSION_OP,
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_RETURN => [
-					self::ACTION_GOTO => self::EXPRESSION_NO_NL,
-				],
-				self::TYPE_IF => [
-					self::ACTION_GOTO => self::CONDITION,
-				],
-				self::TYPE_VAR => [
-					self::ACTION_GOTO => self::EXPRESSION,
-				],
-				self::TYPE_FUNC => [
-					self::ACTION_PUSH => self::STATEMENT,
-					self::ACTION_GOTO => self::FUNC,
-				],
-				self::TYPE_CLASS => [
-					self::ACTION_PUSH => self::STATEMENT,
-					self::ACTION_GOTO => self::CLASS_DEF,
-				],
-				self::TYPE_IMPORT_EXPORT => [
-					self::ACTION_GOTO => self::IMPORT_EXPORT,
-				],
-				self::TYPE_LITERAL => [
-					self::ACTION_GOTO => self::EXPRESSION_OP,
-				],
-			],
-			// The state after if/catch/while/for/switch/with
-			// Waits for an expression in parentheses, then goes to STATEMENT
-			self::CONDITION => [
-				self::TYPE_PAREN_OPEN => [
-					self::ACTION_PUSH => self::STATEMENT,
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-			],
-			// The state after the function keyword. Waits for {, then goes to STATEMENT.
-			// The function body's closing } will pop the stack, so the state to return to
-			// after the function should be pushed to the stack first
-			self::FUNC => [
-				// Needed to prevent * in an expression in the argument list from improperly
-				// triggering GENFUNC
-				self::TYPE_PAREN_OPEN => [
-					self::ACTION_PUSH => self::FUNC,
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_BRACE_OPEN => [
-					self::ACTION_GOTO => self::STATEMENT,
-				],
-				self::TYPE_SPECIAL => [
-					'*' => [
-						self::ACTION_GOTO => self::GENFUNC,
-					],
-				],
-			],
-			// After function*. Waits for { , then goes to a generator function statement.
-			self::GENFUNC => [
-				self::TYPE_BRACE_OPEN => [
-					// Note negative value: generator function states are negative
-					self::ACTION_GOTO => -self::STATEMENT
-				],
-			],
-			// Property assignment - This is an object literal declaration.
-			// For example: `{ key: value, key2, [computedKey3]: value3, method4() { ... } }`
-			self::PROPERTY_ASSIGNMENT => [
-				self::TYPE_COLON => [
-					self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
-				],
-				// For {, which begins a method
-				self::TYPE_BRACE_OPEN => [
-					self::ACTION_PUSH => self::PROPERTY_ASSIGNMENT,
-					// This is not flipped, see "Special cases" below
-					self::ACTION_GOTO => self::STATEMENT,
-				],
-				self::TYPE_BRACE_CLOSE => [
-					self::ACTION_POP => true,
-				],
-				// For [, which begins a computed key
-				self::TYPE_PAREN_OPEN => [
-					self::ACTION_PUSH => self::PROPERTY_ASSIGNMENT,
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_SPECIAL => [
-					'*' => [
-						self::ACTION_PUSH => self::PROPERTY_ASSIGNMENT,
-						self::ACTION_GOTO => self::GENFUNC,
-					],
-				],
-			],
-			// Place in an expression where we expect an operand or a unary operator: the start
-			// of an expression or after an operator. Note that unary operators (including INCR_OP
-			// and ADD_OP) cause us to stay in this state, while operands take us to EXPRESSION_OP
-			self::EXPRESSION => [
-				self::TYPE_SEMICOLON => [
-					self::ACTION_GOTO => self::STATEMENT,
-				],
-				self::TYPE_BRACE_OPEN => [
-					self::ACTION_PUSH => self::EXPRESSION_OP,
-					self::ACTION_GOTO => self::PROPERTY_ASSIGNMENT,
-				],
-				self::TYPE_BRACE_CLOSE => [
-					self::ACTION_POP => true,
-				],
-				self::TYPE_PAREN_OPEN => [
-					self::ACTION_PUSH => self::EXPRESSION_OP,
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_FUNC => [
-					self::ACTION_PUSH => self::EXPRESSION_OP,
-					self::ACTION_GOTO => self::FUNC,
-				],
-				self::TYPE_CLASS => [
-					self::ACTION_PUSH => self::EXPRESSION_OP,
-					self::ACTION_GOTO => self::CLASS_DEF,
-				],
-				self::TYPE_LITERAL => [
-					self::ACTION_GOTO => self::EXPRESSION_OP,
-				],
-			],
-			// An expression immediately after return/throw/break/continue, where a newline
-			// is not allowed. This state is identical to EXPRESSION, except that semicolon
-			// insertion can happen here, and we never stay here: in cases where EXPRESSION would
-			// do nothing, we go to EXPRESSION.
-			self::EXPRESSION_NO_NL => [
-				self::TYPE_UN_OP => [
-					self::ACTION_GOTO => self::EXPRESSION,
-				],
-				self::TYPE_INCR_OP => [
-					self::ACTION_GOTO => self::EXPRESSION,
-				],
-				// BIN_OP seems impossible at the start of an expression, but it can happen in
-				// yield *foo
-				self::TYPE_BIN_OP => [
-					self::ACTION_GOTO => self::EXPRESSION,
-				],
-				self::TYPE_ADD_OP => [
-					self::ACTION_GOTO => self::EXPRESSION,
-				],
-				self::TYPE_SEMICOLON => [
-					self::ACTION_GOTO => self::STATEMENT,
-				],
-				self::TYPE_BRACE_OPEN => [
-					self::ACTION_PUSH => self::EXPRESSION_OP,
-					self::ACTION_GOTO => self::PROPERTY_ASSIGNMENT,
-				],
-				self::TYPE_BRACE_CLOSE => [
-					self::ACTION_POP => true,
-				],
-				self::TYPE_PAREN_OPEN => [
-					self::ACTION_PUSH => self::EXPRESSION_OP,
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_FUNC => [
-					self::ACTION_PUSH => self::EXPRESSION_OP,
-					self::ACTION_GOTO => self::FUNC,
-				],
-				self::TYPE_CLASS => [
-					self::ACTION_PUSH => self::EXPRESSION_OP,
-					self::ACTION_GOTO => self::CLASS_DEF,
-				],
-				self::TYPE_LITERAL => [
-					self::ACTION_GOTO => self::EXPRESSION_OP,
-				],
-			],
-			// Place in an expression after an operand, where we expect an operator
-			self::EXPRESSION_OP => [
-				self::TYPE_BIN_OP => [
-					self::ACTION_GOTO => self::EXPRESSION,
-				],
-				self::TYPE_ADD_OP => [
-					self::ACTION_GOTO => self::EXPRESSION,
-				],
-				self::TYPE_HOOK => [
-					self::ACTION_PUSH => self::EXPRESSION,
-					self::ACTION_GOTO => self::EXPRESSION_TERNARY,
-				],
-				self::TYPE_COLON => [
-					self::ACTION_GOTO => self::STATEMENT,
-				],
-				self::TYPE_COMMA => [
-					self::ACTION_GOTO => self::EXPRESSION,
-				],
-				self::TYPE_SEMICOLON => [
-					self::ACTION_GOTO => self::STATEMENT,
-				],
-				self::TYPE_ARROW => [
-					self::ACTION_GOTO => self::EXPRESSION_ARROWFUNC,
-				],
-				self::TYPE_PAREN_OPEN => [
-					self::ACTION_PUSH => self::EXPRESSION_OP,
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_BRACE_CLOSE => [
-					self::ACTION_POP => true,
-				],
-			],
-			// State after the } closing an arrow function body: like STATEMENT except
-			// that it has semicolon insertion, COMMA can continue the expression, and after
-			// a function we go to STATEMENT instead of EXPRESSION_OP
-			self::EXPRESSION_END => [
-				self::TYPE_UN_OP => [
-					self::ACTION_GOTO => self::EXPRESSION,
-				],
-				self::TYPE_INCR_OP => [
-					self::ACTION_GOTO => self::EXPRESSION,
-				],
-				self::TYPE_ADD_OP => [
-					self::ACTION_GOTO => self::EXPRESSION,
-				],
-				self::TYPE_COMMA => [
-					self::ACTION_GOTO => self::EXPRESSION,
-				],
-				self::TYPE_SEMICOLON => [
-					self::ACTION_GOTO => self::STATEMENT,
-				],
-				self::TYPE_BRACE_OPEN => [
-					self::ACTION_PUSH => self::STATEMENT,
-					self::ACTION_GOTO => self::STATEMENT,
-				],
-				self::TYPE_BRACE_CLOSE => [
-					self::ACTION_POP => true,
-				],
-				self::TYPE_PAREN_OPEN => [
-					self::ACTION_PUSH => self::EXPRESSION_OP,
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_RETURN => [
-					self::ACTION_GOTO => self::EXPRESSION_NO_NL,
-				],
-				self::TYPE_IF => [
-					self::ACTION_GOTO => self::CONDITION,
-				],
-				self::TYPE_VAR => [
-					self::ACTION_GOTO => self::EXPRESSION,
-				],
-				self::TYPE_FUNC => [
-					self::ACTION_PUSH => self::STATEMENT,
-					self::ACTION_GOTO => self::FUNC,
-				],
-				self::TYPE_CLASS => [
-					self::ACTION_PUSH => self::STATEMENT,
-					self::ACTION_GOTO => self::CLASS_DEF,
-				],
-				self::TYPE_LITERAL => [
-					self::ACTION_GOTO => self::EXPRESSION_OP,
-				],
-			],
-			// State after =>. Like EXPRESSION, except that { begins an arrow function body
-			// rather than an object literal.
-			self::EXPRESSION_ARROWFUNC => [
-				self::TYPE_UN_OP => [
-					self::ACTION_GOTO => self::EXPRESSION,
-				],
-				self::TYPE_INCR_OP => [
-					self::ACTION_GOTO => self::EXPRESSION,
-				],
-				self::TYPE_ADD_OP => [
-					self::ACTION_GOTO => self::EXPRESSION,
-				],
-				self::TYPE_BRACE_OPEN => [
-					self::ACTION_PUSH => self::EXPRESSION_END,
-					self::ACTION_GOTO => self::STATEMENT,
-				],
-				self::TYPE_PAREN_OPEN => [
-					self::ACTION_PUSH => self::EXPRESSION_OP,
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_FUNC => [
-					self::ACTION_PUSH => self::EXPRESSION_OP,
-					self::ACTION_GOTO => self::FUNC,
-				],
-				self::TYPE_CLASS => [
-					self::ACTION_PUSH => self::EXPRESSION_OP,
-					self::ACTION_GOTO => self::CLASS_DEF,
-				],
-				self::TYPE_LITERAL => [
-					self::ACTION_GOTO => self::EXPRESSION_OP,
-				],
-			],
-			// Expression after a ? . This differs from EXPRESSION because a : ends the ternary
-			// rather than starting STATEMENT (outside a ternary, : comes after a goto label)
-			// The actual rule for : ending the ternary is in EXPRESSION_TERNARY_OP.
-			self::EXPRESSION_TERNARY => [
-				self::TYPE_BRACE_OPEN => [
-					self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
-					self::ACTION_GOTO => self::PROPERTY_ASSIGNMENT,
-				],
-				self::TYPE_PAREN_OPEN => [
-					self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_FUNC => [
-					self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
-					self::ACTION_GOTO => self::FUNC,
-				],
-				self::TYPE_CLASS => [
-					self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
-					self::ACTION_GOTO => self::CLASS_DEF,
-				],
-				self::TYPE_LITERAL => [
-					self::ACTION_GOTO => self::EXPRESSION_TERNARY_OP,
-				],
-			],
-			// Like EXPRESSION_OP, but for ternaries, see EXPRESSION_TERNARY
-			self::EXPRESSION_TERNARY_OP => [
-				self::TYPE_BIN_OP => [
-					self::ACTION_GOTO => self::EXPRESSION_TERNARY,
-				],
-				self::TYPE_ADD_OP => [
-					self::ACTION_GOTO => self::EXPRESSION_TERNARY,
-				],
-				self::TYPE_HOOK => [
-					self::ACTION_PUSH => self::EXPRESSION_TERNARY,
-					self::ACTION_GOTO => self::EXPRESSION_TERNARY,
-				],
-				self::TYPE_COMMA => [
-					self::ACTION_GOTO => self::EXPRESSION_TERNARY,
-				],
-				self::TYPE_ARROW => [
-					self::ACTION_GOTO => self::EXPRESSION_TERNARY_ARROWFUNC,
-				],
-				self::TYPE_PAREN_OPEN => [
-					self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_COLON => [
-					self::ACTION_POP => true,
-				],
-			],
-			// Like EXPRESSION_ARROWFUNC, but for ternaries, see EXPRESSION_TERNARY
-			self::EXPRESSION_TERNARY_ARROWFUNC => [
-				self::TYPE_UN_OP => [
-					self::ACTION_GOTO => self::EXPRESSION_TERNARY,
-				],
-				self::TYPE_INCR_OP => [
-					self::ACTION_GOTO => self::EXPRESSION_TERNARY,
-				],
-				self::TYPE_ADD_OP => [
-					self::ACTION_GOTO => self::EXPRESSION_TERNARY,
-				],
-				self::TYPE_BRACE_OPEN => [
-					self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
-					self::ACTION_GOTO => self::STATEMENT,
-				],
-				self::TYPE_PAREN_OPEN => [
-					self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_FUNC => [
-					self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
-					self::ACTION_GOTO => self::FUNC,
-				],
-				self::TYPE_CLASS => [
-					self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
-					self::ACTION_GOTO => self::CLASS_DEF,
-				],
-				self::TYPE_LITERAL => [
-					self::ACTION_GOTO => self::EXPRESSION_TERNARY_OP,
-				],
-			],
-			// Expression inside parentheses. Like EXPRESSION, except that ) ends this state
-			// This differs from EXPRESSION because semicolon insertion can't happen here
-			self::PAREN_EXPRESSION => [
-				self::TYPE_BRACE_OPEN => [
-					self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
-					self::ACTION_GOTO => self::PROPERTY_ASSIGNMENT,
-				],
-				self::TYPE_PAREN_OPEN => [
-					self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_PAREN_CLOSE => [
-					self::ACTION_POP => true,
-				],
-				self::TYPE_FUNC => [
-					self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
-					self::ACTION_GOTO => self::FUNC,
-				],
-				self::TYPE_CLASS => [
-					self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
-					self::ACTION_GOTO => self::CLASS_DEF,
-				],
-				self::TYPE_LITERAL => [
-					self::ACTION_GOTO => self::PAREN_EXPRESSION_OP,
-				],
-			],
-			// Like EXPRESSION_OP, but in parentheses, see PAREN_EXPRESSION
-			self::PAREN_EXPRESSION_OP => [
-				self::TYPE_BIN_OP => [
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_ADD_OP => [
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_HOOK => [
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_COLON => [
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_COMMA => [
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_SEMICOLON => [
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_ARROW => [
-					self::ACTION_GOTO => self::PAREN_EXPRESSION_ARROWFUNC,
-				],
-				self::TYPE_PAREN_OPEN => [
-					self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_PAREN_CLOSE => [
-					self::ACTION_POP => true,
-				],
-			],
-			// Like EXPRESSION_ARROWFUNC, but in parentheses, see PAREN_EXPRESSION
-			self::PAREN_EXPRESSION_ARROWFUNC => [
-				self::TYPE_UN_OP => [
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_INCR_OP => [
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_ADD_OP => [
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_BRACE_OPEN => [
-					self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
-					self::ACTION_GOTO => self::STATEMENT,
-				],
-				self::TYPE_PAREN_OPEN => [
-					self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_FUNC => [
-					self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
-					self::ACTION_GOTO => self::FUNC,
-				],
-				self::TYPE_CLASS => [
-					self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
-					self::ACTION_GOTO => self::CLASS_DEF,
-				],
-				self::TYPE_LITERAL => [
-					self::ACTION_GOTO => self::PAREN_EXPRESSION_OP,
-				],
-			],
-			// Expression as the value of a key in an object literal. Like EXPRESSION, except that
-			// a comma (in PROPERTY_EXPRESSION_OP) goes to PROPERTY_ASSIGNMENT instead
-			self::PROPERTY_EXPRESSION => [
-				self::TYPE_BRACE_OPEN => [
-					self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
-					self::ACTION_GOTO => self::PROPERTY_ASSIGNMENT,
-				],
-				self::TYPE_BRACE_CLOSE => [
-					self::ACTION_POP => true,
-				],
-				self::TYPE_PAREN_OPEN => [
-					self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_FUNC => [
-					self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
-					self::ACTION_GOTO => self::FUNC,
-				],
-				self::TYPE_CLASS => [
-					self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
-					self::ACTION_GOTO => self::CLASS_DEF,
-				],
-				self::TYPE_LITERAL => [
-					self::ACTION_GOTO => self::PROPERTY_EXPRESSION_OP,
-				],
-			],
-			// Like EXPRESSION_OP, but in a property expression, see PROPERTY_EXPRESSION
-			self::PROPERTY_EXPRESSION_OP => [
-				self::TYPE_BIN_OP => [
-					self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
-				],
-				self::TYPE_ADD_OP => [
-					self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
-				],
-				self::TYPE_HOOK => [
-					self::ACTION_PUSH => self::PROPERTY_EXPRESSION,
-					self::ACTION_GOTO => self::EXPRESSION_TERNARY,
-				],
-				self::TYPE_COMMA => [
-					self::ACTION_GOTO => self::PROPERTY_ASSIGNMENT,
-				],
-				self::TYPE_ARROW => [
-					self::ACTION_GOTO => self::PROPERTY_EXPRESSION_ARROWFUNC,
-				],
-				self::TYPE_BRACE_OPEN => [
-					self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
-				],
-				self::TYPE_BRACE_CLOSE => [
-					self::ACTION_POP => true,
-				],
-				self::TYPE_PAREN_OPEN => [
-					self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-			],
-			// Like EXPRESSION_ARROWFUNC, but in a property expression, see PROPERTY_EXPRESSION
-			self::PROPERTY_EXPRESSION_ARROWFUNC => [
-				self::TYPE_UN_OP => [
-					self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
-				],
-				self::TYPE_INCR_OP => [
-					self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
-				],
-				self::TYPE_ADD_OP => [
-					self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
-				],
-				self::TYPE_BRACE_OPEN => [
-					self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
-					self::ACTION_GOTO => self::STATEMENT,
-				],
-				self::TYPE_PAREN_OPEN => [
-					self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_FUNC => [
-					self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
-					self::ACTION_GOTO => self::FUNC,
-				],
-				self::TYPE_CLASS => [
-					self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
-					self::ACTION_GOTO => self::CLASS_DEF,
-				],
-				self::TYPE_LITERAL => [
-					self::ACTION_GOTO => self::PROPERTY_EXPRESSION_OP,
-				],
-			],
-			// Class definition (after the class keyword). Expects an identifier, or the extends
-			// keyword followed by an expression (or both), followed by {, which starts an object
-			// literal. The object literal's closing } will pop the stack, so the state to return
-			// to after the class definition should be pushed to the stack first.
-			self::CLASS_DEF => [
-				self::TYPE_BRACE_OPEN => [
-					self::ACTION_GOTO => self::PROPERTY_ASSIGNMENT,
-				],
-				self::TYPE_PAREN_OPEN => [
-					self::ACTION_PUSH => self::CLASS_DEF,
-					self::ACTION_GOTO => self::PAREN_EXPRESSION,
-				],
-				self::TYPE_FUNC => [
-					self::ACTION_PUSH => self::CLASS_DEF,
-					self::ACTION_GOTO => self::FUNC,
-				],
-			],
-			// Import or export declaration
-			self::IMPORT_EXPORT => [
-				self::TYPE_SEMICOLON => [
-					self::ACTION_GOTO => self::STATEMENT,
-				],
-				self::TYPE_VAR => [
-					self::ACTION_GOTO => self::EXPRESSION,
-				],
-				self::TYPE_FUNC => [
-					self::ACTION_PUSH => self::EXPRESSION_OP,
-					self::ACTION_GOTO => self::FUNC,
-				],
-				self::TYPE_CLASS => [
-					self::ACTION_PUSH => self::EXPRESSION_OP,
-					self::ACTION_GOTO => self::CLASS_DEF,
-				],
-				self::TYPE_SPECIAL => [
-					'default' => [
-						self::ACTION_GOTO => self::EXPRESSION,
-					],
-					// Stay in this state for *, as, from
-					'*' => [],
-					'as' => [],
-					'from' => [],
-				],
-			],
-			// Used in template string-specific code below
-			self::TEMPLATE_STRING_HEAD => [
-				self::TYPE_LITERAL => [
-					self::ACTION_PUSH => self::TEMPLATE_STRING_TAIL,
-					self::ACTION_GOTO => self::EXPRESSION,
-				],
-			],
-		];
+		// See also ECMAScript 6.0 § 11.9.1 Rules of Automatic Semicolon Insertion
+		'continue'   => self::TYPE_RETURN,
+		'break'      => self::TYPE_RETURN,
+		'return'     => self::TYPE_RETURN,
+		'throw'      => self::TYPE_RETURN,
+		// yield is only a keyword inside generator functions, otherwise it's an identifier
+		// This is handled with the negative states hack: if the state is negative, TYPE_YIELD
+		// is treated as TYPE_RETURN, if it's positive it's treated as TYPE_LITERAL
+		'yield'      => self::TYPE_YIELD,
 
-		// Add copies of all these states (except FUNC and GENFUNC) with negative numbers
+		// The keywords require a parenthesised Expression or Identifier
+		// before the next Statement.
+		//
+		//     keyword ( Expression ) Statement
+		//     keyword ( Identifier ) Statement
+		//
+		// See also ECMAScript 6.0:
+		// - § 13.6 The if Statement
+		// - § 13.7 Iteration Statements (do, while, for)
+		// - § 12.10 The with Statement
+		// - § 12.11 The switch Statement
+		// - § 12.13 The throw Statement
+		'if'         => self::TYPE_IF,
+		'catch'      => self::TYPE_IF,
+		'while'      => self::TYPE_IF,
+		'for'        => self::TYPE_IF,
+		'switch'     => self::TYPE_IF,
+		'with'       => self::TYPE_IF,
+
+		// The keywords followed by a Statement, Expression, or Block.
+		//
+		//     else Statement
+		//     do Statement
+		//     case Expression
+		//     try Block
+		//     finally Block
+		//
+		// See also ECMAScript 6.0:
+		// - § 13.6 The if Statement (else)
+		// - § 13.7 Iteration Statements (do, while, for)
+		// - § 13.12 The switch Statement (case)
+		// - § 13.15 The try Statement
+		'else'       => self::TYPE_DO,
+		'do'         => self::TYPE_DO,
+		'case'       => self::TYPE_DO,
+		'try'        => self::TYPE_DO,
+		'finally'    => self::TYPE_DO,
+
+		// Keywords followed by a variable declaration
+		// This is different from the group above, because a { begins
+		// object destructuring, rather than a block
+		'var'        => self::TYPE_VAR,
+		'let'        => self::TYPE_VAR,
+		'const'      => self::TYPE_VAR,
+
+		// Import and export
+		'import'     => self::TYPE_IMPORT_EXPORT,
+		'export'     => self::TYPE_IMPORT_EXPORT,
+
+		// ECMAScript 6.0 § 14.1 Function Definitions
+		'function'   => self::TYPE_FUNC,
+		// ECMAScript 6.0 § 14.2 Arrow Function Definitions
+		'=>'         => self::TYPE_ARROW,
+
+		// Class declaration or expression:
+		//     class Identifier { ClassBody }
+		//     class { ClassBody }
+		//     class Identifier extends Expression { ClassBody }
+		//     class extends Expression { ClassBody }
+		'class'      => self::TYPE_CLASS,
+
+		// Can be one of:
+		// - DecimalLiteral (ECMAScript 6.0 § 11.8.3 Numeric Literals)
+		// - MemberExpression (ECMAScript 6.0 § 12.3 Left-Hand-Side Expressions)
+		'.'          => self::TYPE_BIN_OP,
+
+		// Can be one of:
+		// - Block (ECMAScript 6.0 § 13.2 Block)
+		// - ObjectLiteral (ECMAScript 6.0 § 12.2 Primary Expression)
+		'{'          => self::TYPE_BRACE_OPEN,
+		'}'          => self::TYPE_BRACE_CLOSE,
+
+		// Can be one of:
+		// - Parenthesised Identifier or Expression after a
+		//   TYPE_IF or TYPE_FUNC keyword.
+		// - PrimaryExpression (ECMAScript 6.0 § 12.2 Primary Expression)
+		// - CallExpression (ECMAScript 6.0 § 12.3 Left-Hand-Side Expressions)
+		// - Beginning or an ArrowFunction (ECMAScript 6.0 § 14.2 Arrow Function Definitions)
+		'('          => self::TYPE_PAREN_OPEN,
+		')'          => self::TYPE_PAREN_CLOSE,
+
+		// Can be one of:
+		// - ArrayLiteral (ECMAScript 6.0 § 12.2 Primary Expressions)
+		// - ComputedPropertyName (ECMAScript 6.0 § 12.2.6 Object Initializer)
+		'['          => self::TYPE_PAREN_OPEN,
+		']'          => self::TYPE_PAREN_CLOSE,
+
+		// Can be one of:
+		// - End of any statement
+		// - EmptyStatement (ECMAScript 6.0 § 13.4 Empty Statement)
+		';'          => self::TYPE_SEMICOLON,
+	];
+
+	/**
+	 * @var array $model
+	 *
+	 * The main table for the state machine. Defines the desired action for every state/token pair.
+	 *
+	 * The state pushed onto the stack by ACTION_PUSH will be returned to by ACTION_POP.
+	 * A state/token pair may not specify both ACTION_POP and ACTION_GOTO. If that does happen,
+	 * ACTION_POP takes precedence.
+	 *
+	 * This table is augmented by self::ensureExpandedStates().
+	 */
+	private static $model = [
+		// Statement - This is the initial state.
+		self::STATEMENT => [
+			self::TYPE_UN_OP => [
+				self::ACTION_GOTO => self::EXPRESSION,
+			],
+			self::TYPE_INCR_OP => [
+				self::ACTION_GOTO => self::EXPRESSION,
+			],
+			self::TYPE_ADD_OP => [
+				self::ACTION_GOTO => self::EXPRESSION,
+			],
+			self::TYPE_BRACE_OPEN => [
+				// Use of '{' in statement context, creates a Block.
+				self::ACTION_PUSH => self::STATEMENT,
+			],
+			self::TYPE_BRACE_CLOSE => [
+				// Ends a Block
+				self::ACTION_POP => true,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::EXPRESSION_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_RETURN => [
+				self::ACTION_GOTO => self::EXPRESSION_NO_NL,
+			],
+			self::TYPE_IF => [
+				self::ACTION_GOTO => self::CONDITION,
+			],
+			self::TYPE_VAR => [
+				self::ACTION_GOTO => self::EXPRESSION,
+			],
+			self::TYPE_FUNC => [
+				self::ACTION_PUSH => self::STATEMENT,
+				self::ACTION_GOTO => self::FUNC,
+			],
+			self::TYPE_CLASS => [
+				self::ACTION_PUSH => self::STATEMENT,
+				self::ACTION_GOTO => self::CLASS_DEF,
+			],
+			self::TYPE_IMPORT_EXPORT => [
+				self::ACTION_GOTO => self::IMPORT_EXPORT,
+			],
+			self::TYPE_LITERAL => [
+				self::ACTION_GOTO => self::EXPRESSION_OP,
+			],
+		],
+		// The state after if/catch/while/for/switch/with
+		// Waits for an expression in parentheses, then goes to STATEMENT
+		self::CONDITION => [
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::STATEMENT,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+		],
+		// The state after the function keyword. Waits for {, then goes to STATEMENT.
+		// The function body's closing } will pop the stack, so the state to return to
+		// after the function should be pushed to the stack first
+		self::FUNC => [
+			// Needed to prevent * in an expression in the argument list from improperly
+			// triggering GENFUNC
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::FUNC,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_BRACE_OPEN => [
+				self::ACTION_GOTO => self::STATEMENT,
+			],
+			self::TYPE_SPECIAL => [
+				'*' => [
+					self::ACTION_GOTO => self::GENFUNC,
+				],
+			],
+		],
+		// After function*. Waits for { , then goes to a generator function statement.
+		self::GENFUNC => [
+			self::TYPE_BRACE_OPEN => [
+				// Note negative value: generator function states are negative
+				self::ACTION_GOTO => -self::STATEMENT
+			],
+		],
+		// Property assignment - This is an object literal declaration.
+		// For example: `{ key: value, key2, [computedKey3]: value3, method4() { ... } }`
+		self::PROPERTY_ASSIGNMENT => [
+			self::TYPE_COLON => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
+			],
+			// For {, which begins a method
+			self::TYPE_BRACE_OPEN => [
+				self::ACTION_PUSH => self::PROPERTY_ASSIGNMENT,
+				// This is not flipped, see "Special cases" below
+				self::ACTION_GOTO => self::STATEMENT,
+			],
+			self::TYPE_BRACE_CLOSE => [
+				self::ACTION_POP => true,
+			],
+			// For [, which begins a computed key
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::PROPERTY_ASSIGNMENT,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_SPECIAL => [
+				'*' => [
+					self::ACTION_PUSH => self::PROPERTY_ASSIGNMENT,
+					self::ACTION_GOTO => self::GENFUNC,
+				],
+			],
+		],
+		// Place in an expression where we expect an operand or a unary operator: the start
+		// of an expression or after an operator. Note that unary operators (including INCR_OP
+		// and ADD_OP) cause us to stay in this state, while operands take us to EXPRESSION_OP
+		self::EXPRESSION => [
+			self::TYPE_SEMICOLON => [
+				self::ACTION_GOTO => self::STATEMENT,
+			],
+			self::TYPE_BRACE_OPEN => [
+				self::ACTION_PUSH => self::EXPRESSION_OP,
+				self::ACTION_GOTO => self::PROPERTY_ASSIGNMENT,
+			],
+			self::TYPE_BRACE_CLOSE => [
+				self::ACTION_POP => true,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::EXPRESSION_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_FUNC => [
+				self::ACTION_PUSH => self::EXPRESSION_OP,
+				self::ACTION_GOTO => self::FUNC,
+			],
+			self::TYPE_CLASS => [
+				self::ACTION_PUSH => self::EXPRESSION_OP,
+				self::ACTION_GOTO => self::CLASS_DEF,
+			],
+			self::TYPE_LITERAL => [
+				self::ACTION_GOTO => self::EXPRESSION_OP,
+			],
+		],
+		// An expression immediately after return/throw/break/continue, where a newline
+		// is not allowed. This state is identical to EXPRESSION, except that semicolon
+		// insertion can happen here, and we never stay here: in cases where EXPRESSION would
+		// do nothing, we go to EXPRESSION.
+		self::EXPRESSION_NO_NL => [
+			self::TYPE_UN_OP => [
+				self::ACTION_GOTO => self::EXPRESSION,
+			],
+			self::TYPE_INCR_OP => [
+				self::ACTION_GOTO => self::EXPRESSION,
+			],
+			// BIN_OP seems impossible at the start of an expression, but it can happen in
+			// yield *foo
+			self::TYPE_BIN_OP => [
+				self::ACTION_GOTO => self::EXPRESSION,
+			],
+			self::TYPE_ADD_OP => [
+				self::ACTION_GOTO => self::EXPRESSION,
+			],
+			self::TYPE_SEMICOLON => [
+				self::ACTION_GOTO => self::STATEMENT,
+			],
+			self::TYPE_BRACE_OPEN => [
+				self::ACTION_PUSH => self::EXPRESSION_OP,
+				self::ACTION_GOTO => self::PROPERTY_ASSIGNMENT,
+			],
+			self::TYPE_BRACE_CLOSE => [
+				self::ACTION_POP => true,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::EXPRESSION_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_FUNC => [
+				self::ACTION_PUSH => self::EXPRESSION_OP,
+				self::ACTION_GOTO => self::FUNC,
+			],
+			self::TYPE_CLASS => [
+				self::ACTION_PUSH => self::EXPRESSION_OP,
+				self::ACTION_GOTO => self::CLASS_DEF,
+			],
+			self::TYPE_LITERAL => [
+				self::ACTION_GOTO => self::EXPRESSION_OP,
+			],
+		],
+		// Place in an expression after an operand, where we expect an operator
+		self::EXPRESSION_OP => [
+			self::TYPE_BIN_OP => [
+				self::ACTION_GOTO => self::EXPRESSION,
+			],
+			self::TYPE_ADD_OP => [
+				self::ACTION_GOTO => self::EXPRESSION,
+			],
+			self::TYPE_HOOK => [
+				self::ACTION_PUSH => self::EXPRESSION,
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY,
+			],
+			self::TYPE_COLON => [
+				self::ACTION_GOTO => self::STATEMENT,
+			],
+			self::TYPE_COMMA => [
+				self::ACTION_GOTO => self::EXPRESSION,
+			],
+			self::TYPE_SEMICOLON => [
+				self::ACTION_GOTO => self::STATEMENT,
+			],
+			self::TYPE_ARROW => [
+				self::ACTION_GOTO => self::EXPRESSION_ARROWFUNC,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::EXPRESSION_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_BRACE_CLOSE => [
+				self::ACTION_POP => true,
+			],
+		],
+		// State after the } closing an arrow function body: like STATEMENT except
+		// that it has semicolon insertion, COMMA can continue the expression, and after
+		// a function we go to STATEMENT instead of EXPRESSION_OP
+		self::EXPRESSION_END => [
+			self::TYPE_UN_OP => [
+				self::ACTION_GOTO => self::EXPRESSION,
+			],
+			self::TYPE_INCR_OP => [
+				self::ACTION_GOTO => self::EXPRESSION,
+			],
+			self::TYPE_ADD_OP => [
+				self::ACTION_GOTO => self::EXPRESSION,
+			],
+			self::TYPE_COMMA => [
+				self::ACTION_GOTO => self::EXPRESSION,
+			],
+			self::TYPE_SEMICOLON => [
+				self::ACTION_GOTO => self::STATEMENT,
+			],
+			self::TYPE_BRACE_OPEN => [
+				self::ACTION_PUSH => self::STATEMENT,
+				self::ACTION_GOTO => self::STATEMENT,
+			],
+			self::TYPE_BRACE_CLOSE => [
+				self::ACTION_POP => true,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::EXPRESSION_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_RETURN => [
+				self::ACTION_GOTO => self::EXPRESSION_NO_NL,
+			],
+			self::TYPE_IF => [
+				self::ACTION_GOTO => self::CONDITION,
+			],
+			self::TYPE_VAR => [
+				self::ACTION_GOTO => self::EXPRESSION,
+			],
+			self::TYPE_FUNC => [
+				self::ACTION_PUSH => self::STATEMENT,
+				self::ACTION_GOTO => self::FUNC,
+			],
+			self::TYPE_CLASS => [
+				self::ACTION_PUSH => self::STATEMENT,
+				self::ACTION_GOTO => self::CLASS_DEF,
+			],
+			self::TYPE_LITERAL => [
+				self::ACTION_GOTO => self::EXPRESSION_OP,
+			],
+		],
+		// State after =>. Like EXPRESSION, except that { begins an arrow function body
+		// rather than an object literal.
+		self::EXPRESSION_ARROWFUNC => [
+			self::TYPE_UN_OP => [
+				self::ACTION_GOTO => self::EXPRESSION,
+			],
+			self::TYPE_INCR_OP => [
+				self::ACTION_GOTO => self::EXPRESSION,
+			],
+			self::TYPE_ADD_OP => [
+				self::ACTION_GOTO => self::EXPRESSION,
+			],
+			self::TYPE_BRACE_OPEN => [
+				self::ACTION_PUSH => self::EXPRESSION_END,
+				self::ACTION_GOTO => self::STATEMENT,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::EXPRESSION_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_FUNC => [
+				self::ACTION_PUSH => self::EXPRESSION_OP,
+				self::ACTION_GOTO => self::FUNC,
+			],
+			self::TYPE_CLASS => [
+				self::ACTION_PUSH => self::EXPRESSION_OP,
+				self::ACTION_GOTO => self::CLASS_DEF,
+			],
+			self::TYPE_LITERAL => [
+				self::ACTION_GOTO => self::EXPRESSION_OP,
+			],
+		],
+		// Expression after a ? . This differs from EXPRESSION because a : ends the ternary
+		// rather than starting STATEMENT (outside a ternary, : comes after a goto label)
+		// The actual rule for : ending the ternary is in EXPRESSION_TERNARY_OP.
+		self::EXPRESSION_TERNARY => [
+			self::TYPE_BRACE_OPEN => [
+				self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
+				self::ACTION_GOTO => self::PROPERTY_ASSIGNMENT,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_FUNC => [
+				self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
+				self::ACTION_GOTO => self::FUNC,
+			],
+			self::TYPE_CLASS => [
+				self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
+				self::ACTION_GOTO => self::CLASS_DEF,
+			],
+			self::TYPE_LITERAL => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY_OP,
+			],
+		],
+		// Like EXPRESSION_OP, but for ternaries, see EXPRESSION_TERNARY
+		self::EXPRESSION_TERNARY_OP => [
+			self::TYPE_BIN_OP => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY,
+			],
+			self::TYPE_ADD_OP => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY,
+			],
+			self::TYPE_HOOK => [
+				self::ACTION_PUSH => self::EXPRESSION_TERNARY,
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY,
+			],
+			self::TYPE_COMMA => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY,
+			],
+			self::TYPE_ARROW => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY_ARROWFUNC,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_COLON => [
+				self::ACTION_POP => true,
+			],
+		],
+		// Like EXPRESSION_ARROWFUNC, but for ternaries, see EXPRESSION_TERNARY
+		self::EXPRESSION_TERNARY_ARROWFUNC => [
+			self::TYPE_UN_OP => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY,
+			],
+			self::TYPE_INCR_OP => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY,
+			],
+			self::TYPE_ADD_OP => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY,
+			],
+			self::TYPE_BRACE_OPEN => [
+				self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
+				self::ACTION_GOTO => self::STATEMENT,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_FUNC => [
+				self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
+				self::ACTION_GOTO => self::FUNC,
+			],
+			self::TYPE_CLASS => [
+				self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
+				self::ACTION_GOTO => self::CLASS_DEF,
+			],
+			self::TYPE_LITERAL => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY_OP,
+			],
+		],
+		// Expression inside parentheses. Like EXPRESSION, except that ) ends this state
+		// This differs from EXPRESSION because semicolon insertion can't happen here
+		self::PAREN_EXPRESSION => [
+			self::TYPE_BRACE_OPEN => [
+				self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
+				self::ACTION_GOTO => self::PROPERTY_ASSIGNMENT,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_PAREN_CLOSE => [
+				self::ACTION_POP => true,
+			],
+			self::TYPE_FUNC => [
+				self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
+				self::ACTION_GOTO => self::FUNC,
+			],
+			self::TYPE_CLASS => [
+				self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
+				self::ACTION_GOTO => self::CLASS_DEF,
+			],
+			self::TYPE_LITERAL => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION_OP,
+			],
+		],
+		// Like EXPRESSION_OP, but in parentheses, see PAREN_EXPRESSION
+		self::PAREN_EXPRESSION_OP => [
+			self::TYPE_BIN_OP => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_ADD_OP => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_HOOK => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_COLON => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_COMMA => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_SEMICOLON => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_ARROW => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION_ARROWFUNC,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_PAREN_CLOSE => [
+				self::ACTION_POP => true,
+			],
+		],
+		// Like EXPRESSION_ARROWFUNC, but in parentheses, see PAREN_EXPRESSION
+		self::PAREN_EXPRESSION_ARROWFUNC => [
+			self::TYPE_UN_OP => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_INCR_OP => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_ADD_OP => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_BRACE_OPEN => [
+				self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
+				self::ACTION_GOTO => self::STATEMENT,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_FUNC => [
+				self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
+				self::ACTION_GOTO => self::FUNC,
+			],
+			self::TYPE_CLASS => [
+				self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
+				self::ACTION_GOTO => self::CLASS_DEF,
+			],
+			self::TYPE_LITERAL => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION_OP,
+			],
+		],
+		// Expression as the value of a key in an object literal. Like EXPRESSION, except that
+		// a comma (in PROPERTY_EXPRESSION_OP) goes to PROPERTY_ASSIGNMENT instead
+		self::PROPERTY_EXPRESSION => [
+			self::TYPE_BRACE_OPEN => [
+				self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
+				self::ACTION_GOTO => self::PROPERTY_ASSIGNMENT,
+			],
+			self::TYPE_BRACE_CLOSE => [
+				self::ACTION_POP => true,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_FUNC => [
+				self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
+				self::ACTION_GOTO => self::FUNC,
+			],
+			self::TYPE_CLASS => [
+				self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
+				self::ACTION_GOTO => self::CLASS_DEF,
+			],
+			self::TYPE_LITERAL => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_OP,
+			],
+		],
+		// Like EXPRESSION_OP, but in a property expression, see PROPERTY_EXPRESSION
+		self::PROPERTY_EXPRESSION_OP => [
+			self::TYPE_BIN_OP => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
+			],
+			self::TYPE_ADD_OP => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
+			],
+			self::TYPE_HOOK => [
+				self::ACTION_PUSH => self::PROPERTY_EXPRESSION,
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY,
+			],
+			self::TYPE_COMMA => [
+				self::ACTION_GOTO => self::PROPERTY_ASSIGNMENT,
+			],
+			self::TYPE_ARROW => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_ARROWFUNC,
+			],
+			self::TYPE_BRACE_OPEN => [
+				self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
+			],
+			self::TYPE_BRACE_CLOSE => [
+				self::ACTION_POP => true,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+		],
+		// Like EXPRESSION_ARROWFUNC, but in a property expression, see PROPERTY_EXPRESSION
+		self::PROPERTY_EXPRESSION_ARROWFUNC => [
+			self::TYPE_UN_OP => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
+			],
+			self::TYPE_INCR_OP => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
+			],
+			self::TYPE_ADD_OP => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
+			],
+			self::TYPE_BRACE_OPEN => [
+				self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
+				self::ACTION_GOTO => self::STATEMENT,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_FUNC => [
+				self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
+				self::ACTION_GOTO => self::FUNC,
+			],
+			self::TYPE_CLASS => [
+				self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
+				self::ACTION_GOTO => self::CLASS_DEF,
+			],
+			self::TYPE_LITERAL => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_OP,
+			],
+		],
+		// Class definition (after the class keyword). Expects an identifier, or the extends
+		// keyword followed by an expression (or both), followed by {, which starts an object
+		// literal. The object literal's closing } will pop the stack, so the state to return
+		// to after the class definition should be pushed to the stack first.
+		self::CLASS_DEF => [
+			self::TYPE_BRACE_OPEN => [
+				self::ACTION_GOTO => self::PROPERTY_ASSIGNMENT,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::CLASS_DEF,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_FUNC => [
+				self::ACTION_PUSH => self::CLASS_DEF,
+				self::ACTION_GOTO => self::FUNC,
+			],
+		],
+		// Import or export declaration
+		self::IMPORT_EXPORT => [
+			self::TYPE_SEMICOLON => [
+				self::ACTION_GOTO => self::STATEMENT,
+			],
+			self::TYPE_VAR => [
+				self::ACTION_GOTO => self::EXPRESSION,
+			],
+			self::TYPE_FUNC => [
+				self::ACTION_PUSH => self::EXPRESSION_OP,
+				self::ACTION_GOTO => self::FUNC,
+			],
+			self::TYPE_CLASS => [
+				self::ACTION_PUSH => self::EXPRESSION_OP,
+				self::ACTION_GOTO => self::CLASS_DEF,
+			],
+			self::TYPE_SPECIAL => [
+				'default' => [
+					self::ACTION_GOTO => self::EXPRESSION,
+				],
+				// Stay in this state for *, as, from
+				'*' => [],
+				'as' => [],
+				'from' => [],
+			],
+		],
+		// Used in template string-specific code below
+		self::TEMPLATE_STRING_HEAD => [
+			self::TYPE_LITERAL => [
+				self::ACTION_PUSH => self::TEMPLATE_STRING_TAIL,
+				self::ACTION_GOTO => self::EXPRESSION,
+			],
+		],
+	];
+
+	/**
+	 * @var array $semicolon
+	 *
+	 * Rules for when semicolon insertion is appropriate. Semicolon insertion happens if we are
+	 * in one of these states, and encounter one of these tokens preceded by a newline.
+	 *
+	 * This array is augmented by ensureExpandedStates().
+	 */
+	private static $semicolon = [
+		self::EXPRESSION_NO_NL => [
+			self::TYPE_UN_OP => true,
+			// BIN_OP seems impossible at the start of an expression, but it can happen in
+			// yield *foo
+			self::TYPE_BIN_OP => true,
+			self::TYPE_INCR_OP => true,
+			self::TYPE_ADD_OP => true,
+			self::TYPE_BRACE_OPEN => true,
+			self::TYPE_PAREN_OPEN => true,
+			self::TYPE_RETURN => true,
+			self::TYPE_IF => true,
+			self::TYPE_DO => true,
+			self::TYPE_VAR => true,
+			self::TYPE_FUNC => true,
+			self::TYPE_CLASS => true,
+			self::TYPE_IMPORT_EXPORT => true,
+			self::TYPE_LITERAL => true
+		],
+		self::EXPRESSION_OP => [
+			self::TYPE_UN_OP => true,
+			self::TYPE_INCR_OP => true,
+			self::TYPE_BRACE_OPEN => true,
+			self::TYPE_RETURN => true,
+			self::TYPE_IF => true,
+			self::TYPE_DO => true,
+			self::TYPE_VAR => true,
+			self::TYPE_FUNC => true,
+			self::TYPE_CLASS => true,
+			self::TYPE_IMPORT_EXPORT => true,
+			self::TYPE_LITERAL => true
+		],
+		self::EXPRESSION_END => [
+			self::TYPE_UN_OP => true,
+			self::TYPE_INCR_OP => true,
+			self::TYPE_ADD_OP => true,
+			self::TYPE_BRACE_OPEN => true,
+			self::TYPE_PAREN_OPEN => true,
+			self::TYPE_RETURN => true,
+			self::TYPE_IF => true,
+			self::TYPE_DO => true,
+			self::TYPE_VAR => true,
+			self::TYPE_FUNC => true,
+			self::TYPE_CLASS => true,
+			self::TYPE_IMPORT_EXPORT => true,
+			self::TYPE_LITERAL => true
+		]
+	];
+
+	/**
+	 * @var array $divStates
+	 *
+	 * States in which a / is a division operator. In all other states, it's the start of a regex.
+	 *
+	 * This array is augmented by self::ensureExpandedStates().
+	 */
+	private static $divStates = [
+		self::EXPRESSION_OP          => true,
+		self::EXPRESSION_TERNARY_OP  => true,
+		self::PAREN_EXPRESSION_OP    => true,
+		self::PROPERTY_EXPRESSION_OP => true
+	];
+
+	/**
+	 * @var array $expressionStates
+	 *
+	 * States that are like EXPRESSION, where true and false can be minified to !1 and !0.
+	 *
+	 * This array is augmented by self::ensureExpandedStates().
+	 */
+	private static $expressionStates = [
+		self::EXPRESSION           => true,
+		self::EXPRESSION_NO_NL     => true,
+		self::EXPRESSION_ARROWFUNC => true,
+		self::EXPRESSION_TERNARY   => true,
+		self::PAREN_EXPRESSION     => true,
+		self::PROPERTY_EXPRESSION  => true,
+	];
+
+	/**
+	 * Add copies of all states but with negative numbers to self::$model (if not already present),
+	 * to represent generator function states.
+	 */
+	private static function ensureExpandedStates() {
+		// Already done?
+		if ( self::$expandedStates ) {
+			return;
+		}
+		self::$expandedStates = true;
+
+		// Add copies of all states (except FUNC and GENFUNC) with negative numbers.
 		// These negative states represent states inside generator functions. When in these states,
 		// TYPE_YIELD is treated as TYPE_RETURN, otherwise as TYPE_LITERAL
-		foreach ( $model as $state => $transitions ) {
+		foreach ( self::$model as $state => $transitions ) {
 			if ( $state !== self::FUNC && $state !== self::GENFUNC ) {
 				foreach ( $transitions as $tokenType => $actions ) {
 					foreach ( $actions as $action => $target ) {
 						if ( is_array( $target ) ) {
 							foreach ( $target as $subaction => $subtarget ) {
-								$model[-$state][$tokenType][$action][$subaction] =
-									$subtarget === true || $subtarget === self::FUNC || $subtarget === self::GENFUNC
+								self::$model[-$state][$tokenType][$action][$subaction] =
+									$subtarget === self::FUNC || $subtarget === true || $subtarget === self::GENFUNC
 									? $subtarget : -$subtarget;
 							}
 						} else {
-							$model[-$state][$tokenType][$action] =
-								$target === true || $target === self::FUNC || $target === self::GENFUNC
+							self::$model[-$state][$tokenType][$action] =
+								$target === self::FUNC || $target === true || $target === self::GENFUNC
 								? $target : -$target;
 						}
 					}
@@ -978,85 +1081,29 @@ class JavaScriptMinifier {
 			}
 		}
 		// Special cases:
-		// '{' in a property assignment starts a method, so it shouldn't be flipped; flip it again
-		$model[-self::PROPERTY_ASSIGNMENT][self::TYPE_BRACE_OPEN][self::ACTION_GOTO] *= -1;
+		// '{' in a property assignment starts a method, so it shouldn't be flipped
+		self::$model[-self::PROPERTY_ASSIGNMENT][self::TYPE_BRACE_OPEN][self::ACTION_GOTO] = self::STATEMENT;
 
-		// Rules for when a semicolon insertion is appropriate. Semicolon insertion happens if we
-		// are in one of these states, and encounter one of these tokens preceded by a newline
-		$semicolon = [
-			self::EXPRESSION_NO_NL => [
-				self::TYPE_UN_OP => true,
-				// BIN_OP seems impossible at the start of an expression, but it can happen in
-				// yield *foo
-				self::TYPE_BIN_OP => true,
-				self::TYPE_INCR_OP => true,
-				self::TYPE_ADD_OP => true,
-				self::TYPE_BRACE_OPEN => true,
-				self::TYPE_PAREN_OPEN => true,
-				self::TYPE_RETURN => true,
-				self::TYPE_IF => true,
-				self::TYPE_DO => true,
-				self::TYPE_VAR => true,
-				self::TYPE_FUNC => true,
-				self::TYPE_CLASS => true,
-				self::TYPE_IMPORT_EXPORT => true,
-				self::TYPE_LITERAL => true
-			],
-			self::EXPRESSION_OP => [
-				self::TYPE_UN_OP => true,
-				self::TYPE_INCR_OP => true,
-				self::TYPE_BRACE_OPEN => true,
-				self::TYPE_RETURN => true,
-				self::TYPE_IF => true,
-				self::TYPE_DO => true,
-				self::TYPE_VAR => true,
-				self::TYPE_FUNC => true,
-				self::TYPE_CLASS => true,
-				self::TYPE_IMPORT_EXPORT => true,
-				self::TYPE_LITERAL => true
-			],
-			self::EXPRESSION_END => [
-				self::TYPE_UN_OP => true,
-				self::TYPE_INCR_OP => true,
-				self::TYPE_ADD_OP => true,
-				self::TYPE_BRACE_OPEN => true,
-				self::TYPE_PAREN_OPEN => true,
-				self::TYPE_RETURN => true,
-				self::TYPE_IF => true,
-				self::TYPE_DO => true,
-				self::TYPE_VAR => true,
-				self::TYPE_FUNC => true,
-				self::TYPE_CLASS => true,
-				self::TYPE_IMPORT_EXPORT => true,
-				self::TYPE_LITERAL => true
-			]
-		];
-
-		// States in which a / is a division operator. In all other states, it's the start of a regex
-		$divStates = [
-			self::EXPRESSION_OP          => true,
-			self::EXPRESSION_TERNARY_OP  => true,
-			self::PAREN_EXPRESSION_OP    => true,
-			self::PROPERTY_EXPRESSION_OP => true
-		];
-
-		// States that are like EXPRESSION, where true and false can be minified to !1 and !0
-		$expressionStates = [
-			self::EXPRESSION           => true,
-			self::EXPRESSION_NO_NL     => true,
-			self::EXPRESSION_ARROWFUNC => true,
-			self::EXPRESSION_TERNARY   => true,
-			self::PAREN_EXPRESSION     => true,
-			self::PROPERTY_EXPRESSION  => true,
-		];
-
-		// Add negative versions of states to the above
-		foreach ( [ &$semicolon, &$divStates, &$expressionStates ] as &$arr ) {
-			foreach ( $arr as $state => $value ) {
-				$arr[-$state] = $value;
-			}
+		// Also add negative versions of states to the other arrays
+		foreach ( self::$semicolon as $state => $value ) {
+			self::$semicolon[-$state] = $value;
 		}
-		unset( $arr );
+		foreach ( self::$divStates as $state => $value ) {
+			self::$divStates[-$state] = $value;
+		}
+		foreach ( self::$expressionStates as $state => $value ) {
+			self::$expressionStates[-$state] = $value;
+		}
+	}
+
+	/**
+	 * Returns minified JavaScript code.
+	 *
+	 * @param string $s JavaScript code to minify
+	 * @return string|bool Minified code or false on failure
+	 */
+	public static function minify( $s ) {
+		self::ensureExpandedStates();
 
 		// Here's where the minifying takes place: Loop through the input, looking for tokens
 		// and output them to $out, taking actions to the above defined rules when appropriate.
@@ -1174,7 +1221,7 @@ class JavaScriptMinifier {
 
 			// We have to distinguish between regexp literals and division operators
 			// A division operator is only possible in certain states
-			} elseif ( $ch === '/' && !isset( $divStates[$state] ) ) {
+			} elseif ( $ch === '/' && !isset( self::$divStates[$state] ) ) {
 				// Regexp literal
 				for ( ; ; ) {
 					// Search until we find "/" (end of regexp), "\" (backslash escapes),
@@ -1266,11 +1313,11 @@ class JavaScriptMinifier {
 					}
 					$end += $len;
 				}
-			} elseif ( isset( $opChars[$ch] ) ) {
+			} elseif ( isset( self::$opChars[$ch] ) ) {
 				// Punctuation character. Search for the longest matching operator.
 				while (
 					$end < $length
-					&& isset( $tokenTypes[substr( $s, $pos, $end - $pos + 1 )] )
+					&& isset( self::$tokenTypes[substr( $s, $pos, $end - $pos + 1 )] )
 				) {
 					$end++;
 				}
@@ -1282,9 +1329,9 @@ class JavaScriptMinifier {
 
 			// Now get the token type from our type array
 			$token = substr( $s, $pos, $end - $pos ); // so $end - $pos == strlen( $token )
-			$type = isset( $model[$state][self::TYPE_SPECIAL][$token] )
+			$type = isset( self::$model[$state][self::TYPE_SPECIAL][$token] )
 				? self::TYPE_SPECIAL
-				: $tokenTypes[$token] ?? self::TYPE_LITERAL;
+				: self::$tokenTypes[$token] ?? self::TYPE_LITERAL;
 			if ( $type === self::TYPE_YIELD ) {
 				// yield is treated as TYPE_RETURN inside a generator function (negative state)
 				// but as TYPE_LITERAL when not in a generator function (positive state)
@@ -1294,21 +1341,21 @@ class JavaScriptMinifier {
 			if (
 				$type === self::TYPE_LITERAL
 				&& ( $token === 'true' || $token === 'false' )
-				&& isset( $expressionStates[$state] )
+				&& isset( self::$expressionStates[$state] )
 				&& $last !== '.'
 			) {
 				$token = ( $token === 'true' ) ? '!0' : '!1';
 				$ch = '!';
 			}
 
-			if ( $newlineFound && isset( $semicolon[$state][$type] ) ) {
+			if ( $newlineFound && isset( self::$semicolon[$state][$type] ) ) {
 				// This token triggers the semicolon insertion mechanism of javascript. While we
 				// could add the ; token here ourselves, keeping the newline has a few advantages.
 				$out .= "\n";
 				$state = $state < 0 ? -self::STATEMENT : self::STATEMENT;
 				$lineLength = 0;
 			} elseif ( $lineLength + $end - $pos > self::$maxLineLength &&
-				!isset( $semicolon[$state][$type] ) &&
+				!isset( self::$semicolon[$state][$type] ) &&
 				$type !== self::TYPE_INCR_OP &&
 				$type !== self::TYPE_ARROW
 			) {
@@ -1319,7 +1366,7 @@ class JavaScriptMinifier {
 				$out .= "\n";
 				$lineLength = 0;
 			// Check, whether we have to separate the token from the last one with whitespace
-			} elseif ( !isset( $opChars[$last] ) && !isset( $opChars[$ch] ) ) {
+			} elseif ( !isset( self::$opChars[$last] ) && !isset( self::$opChars[$ch] ) ) {
 				$out .= ' ';
 				$lineLength++;
 			// Don't accidentally create ++, -- or // tokens
@@ -1336,8 +1383,8 @@ class JavaScriptMinifier {
 
 			// Now that we have output our token, transition into the new state.
 			$actions = $type === self::TYPE_SPECIAL ?
-				$model[$state][$type][$token] :
-				$model[$state][$type] ?? [];
+				self::$model[$state][$type][$token] :
+				self::$model[$state][$type] ?? [];
 			if ( isset( $actions[self::ACTION_PUSH] ) &&
 				count( $stack ) < self::STACK_LIMIT
 			) {
