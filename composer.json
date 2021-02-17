@@ -15,6 +15,10 @@
 		{
 			"name": "Timo Tijhof",
 			"email": "krinklemail@gmail.com"
+		},
+		{
+			"name": "Roan Kattouw",
+			"email": "roan.kattouw@gmail.com"
 		}
 	],
 	"autoload": {

@@ -193,6 +193,112 @@ class JavaScriptMinifierTest extends PHPUnit\Framework\TestCase {
 			[ "a.foo = bar ? false : true;", "a.foo=bar?!1:!0;" ],
 			[ "func( true, false )", "func(!0,!1)" ],
 			[ "function f() { return false; }", "function f(){return!1;}" ],
+			[ "let f = () => false;", "let f=()=>!1;" ],
+
+			// Template strings
+			[ 'let a = `foo + ${ 1 + 2 } + bar`;', 'let a=`foo + ${1+2} + bar`;' ],
+			[ 'let a = `foo + ${ "hello world" } + bar`;', 'let a=`foo + ${"hello world"} + bar`;' ],
+			[
+				'let a = `foo + ${ `bar + ${ `baz + ${ `quux` } + lol` } + ${ `yikes` } ` }`, b = 3;',
+				'let a=`foo + ${`bar + ${`baz + ${`quux`} + lol`} + ${`yikes`} `}`,b=3;'
+			],
+			[ 'let a = `foo$\\` + 23;', 'let a=`foo$\\`+23;' ],
+
+			// Behavior of 'yield' in generator functions vs normal functions
+			[ "function *f( x ) {\n if ( x )\n yield\n ( 42 )\n}", "function*f(x){if(x)yield\n(42)}" ],
+			[ "function g( y ) {\n const yield = 42\n yield\n ( 42 )\n}", "function g(y){const yield=42\nyield(42)}" ],
+			// Normal function nested inside generator function
+			[
+				<<<JAVASCRIPT
+				function *f( x ) {
+					if ( x )
+						yield
+						( 42 )
+					function g() {
+						const yield = 42
+						yield
+						( 42 )
+						return
+						42
+					}
+					yield
+					42
+				}
+JAVASCRIPT
+				,
+				"function*f(x){if(x)yield\n(42)\nfunction g(){const yield=42\nyield(42)\nreturn\n42}yield\n42}",
+			],
+
+			// Object literals: optional values, computed keys
+			[ "let a = { foo, bar: 'baz', [21 * 2]: 'answer' }", "let a={foo,bar:'baz',[21*2]:'answer'}" ],
+			[
+				"let a = { [( function ( x ) {\n if ( x )\nreturn\nx*2 } ( 21 ) )]: 'wrongAnswer' }",
+				"let a={[(function(x){if(x)return\nx*2}(21))]:'wrongAnswer'}"
+			],
+			// Functions in object literals
+			[
+				"let a = { foo() { if ( x )\n return\n 42 }, bar: 21 * 2 };",
+				"let a={foo(){if(x)return\n42},bar:21*2};"
+			],
+			[
+				"let a = { *f() { yield\n(42); }, g() { let yield = 42; yield\n(42); };",
+				"let a={*f(){yield\n(42);},g(){let yield=42;yield(42);};"
+			],
+			[
+				"function *f() { return { g() { let yield = 42; yield\n(42); } }; }",
+				"function*f(){return{g(){let yield=42;yield(42);}};}"
+			],
+			[
+				"function *f() { return { *h() { yield\n(42); } }; }",
+				"function*f(){return{*h(){yield\n(42);}};}"
+			],
+
+			// Classes
+			[
+				"class Foo { *f() { yield\n(42); }, g() { let yield = 42; yield\n(42); } }",
+				"class Foo{*f(){yield\n(42);},g(){let yield=42;yield(42);}}"
+			],
+			[
+				"class Foo { static *f() { yield\n(42); }, static g() { let yield = 42; yield\n(42); } }",
+				"class Foo{static*f(){yield\n(42);},static g(){let yield=42;yield(42);}}"
+			],
+			[
+				"class Foo { get bar() { return\n42 } set baz( val ) { throw new Error( 'yikes' ) } }",
+				"class Foo{get bar(){return\n42}set baz(val){throw new Error('yikes')}}"
+			],
+			// Extends
+			[ "class Foo extends Bar { f() { return\n42 } }", "class Foo extends Bar{f(){return\n42}}" ],
+			[ "class Foo extends Bar.Baz { f() { return\n42 } }", "class Foo extends Bar.Baz{f(){return\n42}}" ],
+			[
+				"class Foo extends (function (x) { return\n x.Baz; }(Bar)) { f() { return\n42 } }",
+				"class Foo extends(function(x){return\nx.Baz;}(Bar)){f(){return\n42}}"
+			],
+			[
+				"class Foo extends function(x) {return\n 42} { *f() { yield\n 42 } }",
+				"class Foo extends function(x){return\n42}{*f(){yield\n42}}"
+			],
+
+			// Arrow functions
+			[ "let a = ( x, y ) => x + y;", "let a=(x,y)=>x+y;" ],
+			[ "let a = ( x, y ) => { return \n x + y };", "let a=(x,y)=>{return\nx+y};" ],
+			[ "let a = ( x, y ) => { return x + y; }\n( 1, 2 )", "let a=(x,y)=>{return x+y;}\n(1,2)" ],
+			[ "let a = ( x, y ) => { return x + y; }\n+5", "let a=(x,y)=>{return x+y;}\n+5" ],
+			// Note that non-arrow functions behave differently:
+			[ "let a = function ( x, y ) { return x + y; }\n( 1, 2 )", "let a=function(x,y){return x+y;}(1,2)" ],
+			[ "let a = function ( x, y ) { return x + y; }\n+5", "let a=function(x,y){return x+y;}+5" ],
+
+			// export
+			[ "export { Foo, Bar as Baz } from 'thingy';", "export{Foo,Bar as Baz}from'thingy';" ],
+			[ "export * from 'thingy';", "export*from'thingy';" ],
+			[ "export class Foo { f() { return\n 42 } }", "export class Foo{f(){return\n42}}" ],
+			[ "export default class Foo { *f() { yield\n 42 } }", "export default class Foo{*f(){yield\n42}}" ],
+			// import
+			[ "import { Foo, Bar as Baz, Quux } from 'thingy';", "import{Foo,Bar as Baz,Quux}from'thingy';" ],
+			[ "import * as Foo from 'thingy';", "import*as Foo from'thingy';" ],
+			[ "import Foo, * as Bar from 'thingy';", "import Foo,*as Bar from'thingy';" ],
+			// Semicolon insertion before import/export
+			[ "( x, y ) => { return x + y; }\nexport class Foo {}", "(x,y)=>{return x+y;}\nexport class Foo{}" ],
+			[ "let x = y + 3\nimport Foo from 'thingy';", "let x=y+3\nimport Foo from'thingy';" ],
 		];
 	}
 
@@ -366,6 +472,244 @@ JAVASCRIPT
 					'}',
 				]
 			],
+			[
+				// Yield statement in generator function
+				<<<JAVASCRIPT
+				function *f( x ) {
+					yield 42
+					function g() {
+						let yield = 42;
+						yield( 42 )
+						return 42
+					}
+					yield *21*2
+				}
+JAVASCRIPT
+				,
+				[
+					'function',
+					'*',
+					'f',
+					'(',
+					'x',
+					')',
+					'{',
+					'yield 42',
+					'function',
+					'g',
+					'(',
+					')',
+					'{',
+					'let',
+					'yield',
+					'=',
+					'42',
+					';',
+					'yield',
+					'(',
+					'42',
+					')',
+					'return 42',
+					'}',
+					'yield*',
+					'21',
+					'*',
+					'2',
+					'}',
+				]
+			],
+			[
+				// Template string literal with a function body inside
+				'let a = `foo + ${ ( function ( x ) { return x * 2; }( 21 ) ) } + bar`;',
+				[
+					'let',
+					'a',
+					'=',
+					'`foo + ${',
+					'(',
+					'function',
+					'(',
+					'x',
+					')',
+					'{',
+					'return x',
+					'*',
+					'2',
+					';',
+					'}',
+					'(',
+					'21',
+					')',
+					')',
+					'} + bar`',
+					';'
+				]
+			],
+			[
+				// Functions in classes
+				"class Foo { static *f() { yield(42); }, static g() { let yield = 42; yield(42); } }",
+				[
+					'class',
+					'Foo',
+					'{',
+					'static',
+					'*',
+					'f',
+					'(',
+					')',
+					'{',
+					'yield(',
+					'42',
+					')',
+					';',
+					'}',
+					',',
+					'static',
+					'g',
+					'(',
+					')',
+					'{',
+					'let',
+					'yield',
+					'=',
+					'42',
+					';',
+					'yield',
+					'(',
+					'42',
+					')',
+					';',
+					'}',
+					'}'
+				]
+			],
+			[
+				"class Foo { get bar() { return 42 } set baz( val ) { throw new Error( 'yikes' ) } }",
+				[
+					'class',
+					'Foo',
+					'{',
+					'get',
+					'bar',
+					'(',
+					')',
+					'{',
+					'return 42',
+					'}',
+					'set',
+					'baz',
+					'(',
+					'val',
+					')',
+					'{',
+					'throw new',
+					'Error',
+					'(',
+					"'yikes'",
+					')',
+					'}',
+					'}',
+				]
+			],
+			[
+				// Don't break before an arrow
+				"let a = (x, y) => x + y;",
+				[
+					'let',
+					'a',
+					'=',
+					'(',
+					'x',
+					',',
+					'y',
+					')=>',
+					'x',
+					'+',
+					'y',
+					';'
+				]
+			],
+			[
+				"let a = (x, y) => { return x + y; };",
+				[
+					'let',
+					'a',
+					'=',
+					'(',
+					'x',
+					',',
+					'y',
+					')=>',
+					'{',
+					'return x',
+					'+',
+					'y',
+					';',
+					'}',
+					';'
+				]
+			],
+			[
+				"export default class Foo { *f() { yield 42; } }",
+				[
+					'export',
+					'default',
+					'class',
+					'Foo',
+					'{',
+					'*',
+					'f',
+					'(',
+					')',
+					'{',
+					'yield 42',
+					';',
+					'}',
+					'}',
+				]
+					],
+			[
+				"export { Foo, Bar as Baz, Quux };",
+				[
+					'export',
+					'{',
+					'Foo',
+					',',
+					'Bar',
+					'as',
+					'Baz',
+					',',
+					'Quux',
+					'}',
+					';'
+				]
+			],
+			[
+				"import * as Foo from 'thingy';",
+				[
+					'import',
+					'*',
+					'as',
+					'Foo',
+					'from',
+					"'thingy'",
+					';'
+				]
+			],
+			[
+				"import Foo, * as Bar from 'thingy';",
+				[
+					'import',
+					'Foo',
+					',',
+					'*',
+					'as',
+					'Bar',
+					'from',
+					"'thingy'",
+					';'
+				]
+			]
 		];
 	}
 
