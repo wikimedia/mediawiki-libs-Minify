@@ -100,7 +100,7 @@ class JavaScriptMinifierTest extends PHPUnit\Framework\TestCase {
 
 			// Cover failure case of incomplete regexp at end of file (T75556)
 			// FIXME: This is invalid, but currently tolerated
-			[ "*/", "*/", false ],
+			[ "*/", "*/" ],
 
 			// Cover failure case of incomplete char class in regexp (T75556)
 			// FIXME: This is invalid, but currently tolerated
@@ -108,7 +108,7 @@ class JavaScriptMinifierTest extends PHPUnit\Framework\TestCase {
 
 			// Cover failure case of incomplete string at end of file (T75556)
 			// FIXME: This is invalid, but currently tolerated
-			[ "'a", "'a", false ],
+			[ "'a", "'a" ],
 
 			// Token separation
 			[ "x  in  y", "x in y" ],
