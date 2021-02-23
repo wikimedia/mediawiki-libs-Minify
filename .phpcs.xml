@@ -13,6 +13,7 @@
 	</rule>
 
 	<file>.</file>
+	<file>bin/minify</file>
 	<arg name="encoding" value="UTF-8"/>
 	<arg name="extensions" value="php"/>
 	<exclude-pattern>coverage</exclude-pattern>
