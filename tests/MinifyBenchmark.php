@@ -5,13 +5,15 @@ use Wikimedia\Minify\JavaScriptMinifier;
 class MinifyBenchmark {
 
 	public function run() : void {
-		$this->benchJavaScriptMinifier();
+		// Avoid removing or changing existing bench fixtures (keep apples-to-apples reference).
+		$this->benchJavaScriptMinifier( 'jquery', 'https://code.jquery.com/jquery-3.2.1.js' );
+		$this->benchJavaScriptMinifier( 'vue-min', 'https://raw.githubusercontent.com/wikimedia/mediawiki/1.35.1/resources/lib/vue/vue.common.prod.js' );
 		$this->benchCSSMinMinify();
 		$this->benchCSSMinRemap();
 	}
 
-	public function benchJavaScriptMinifier() : void {
-		$data = $this->loadTmpFile( 'jquery', 'https://code.jquery.com/jquery-3.2.1.js' );
+	private function benchJavaScriptMinifier( $label, $srcUrl ) : void {
+		$data = $this->loadTmpFile( $label, $srcUrl );
 		$iterations = 200;
 		$total = 0;
 		$max = -INF;
@@ -22,10 +24,10 @@ class MinifyBenchmark {
 			$max = max( $max, $took );
 			$total += ( microtime( true ) - $start ) * 1000;
 		}
-		$this->outputStat( 'JavaScriptMinifier (jquery)', $total, $max, $iterations );
+		$this->outputStat( "JavaScriptMinifier ($label)", $total, $max, $iterations );
 	}
 
-	public function benchCSSMinMinify() : void {
+	private function benchCSSMinMinify() : void {
 		$data = $this->loadTmpFile( 'ooui', 'https://github.com/wikimedia/mediawiki/raw/1.31.0/resources/lib/oojs-ui/oojs-ui-core-wikimediaui.css' );
 		$iterations = 1000;
 		$total = 0;
@@ -40,7 +42,7 @@ class MinifyBenchmark {
 		$this->outputStat( 'CSSMin::minify (ooui)', $total, $max, $iterations );
 	}
 
-	public function benchCSSMinRemap() : void {
+	private function benchCSSMinRemap() : void {
 		$local = __DIR__ . '/data';
 		$data = file_get_contents( "{$local}/bench-remap-example.css" );
 		$iterations = 1000;
