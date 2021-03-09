@@ -4,6 +4,11 @@
 		<exclude name="MediaWiki.WhiteSpace.SpaceBeforeSingleLineComment.NewLineComment"/>
 		<exclude name="MediaWiki.Commenting.PropertyDocumentation.MissingDocumentationPrivate"/>
 		<exclude name="MediaWiki.Commenting.FunctionComment.MissingDocumentationPrivate"/>
+		<!-- RedundantVarName is currently too sensitive, incompatible with default Doxygen. -->
+		<exclude name="MediaWiki.Commenting.RedundantVarName.Found"/>
+		<!-- T276971 -->
+		<exclude name="MediaWiki.Commenting.PhpunitAnnotations.ForbiddenRunInSeparateProcess"/>
+		<exclude name="MediaWiki.Commenting.FunctionAnnotations.UnrecognizedAnnotation"/>
 	</rule>
 	<rule ref="Generic.Files.LineLength.TooLong">
 		<exclude-pattern>*/tests/*\.php</exclude-pattern>

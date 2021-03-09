@@ -21,20 +21,22 @@
 namespace Wikimedia\Minify;
 
 /**
+ * Implementation of `minify` CLI.
+ *
  * @internal For use by `bin/minify` only.
  */
 final class Cli {
-	/** @var int */
+	/** @var int $exitCode */
 	private $exitCode = 0;
-	/** @var resource */
+	/** @var resource $in */
 	private $in;
-	/** @var resource */
+	/** @var resource $out */
 	private $out;
-	/** @var string */
+	/** @var string $self */
 	private $self;
-	/** @var string */
+	/** @var string $command */
 	private $command;
-	/** @var string[] */
+	/** @var string[] $params */
 	private $params;
 
 	/**
@@ -50,7 +52,8 @@ final class Cli {
 		$this->params = array_slice( $argv, 2 );
 	}
 
-	public function run() {
+	/** Perform the specified command. */
+	public function run() : void {
 		try {
 			switch ( $this->command ) {
 			case 'css':
