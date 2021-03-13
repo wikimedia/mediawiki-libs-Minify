@@ -99,9 +99,8 @@ class JavaScriptMinifier {
 	private const TYPE_YIELD         = 118; // keywords: yield
 	private const TYPE_FUNC          = 119; // keywords: function
 	private const TYPE_CLASS         = 120; // keywords: class
-	private const TYPE_IMPORT_EXPORT = 121; // keywords: import, export
-	private const TYPE_LITERAL       = 122; // all literals, identifiers, unrecognised tokens, and other keywords
-	private const TYPE_SPECIAL       = 123; // For special treatment of tokens that usually mean something else
+	private const TYPE_LITERAL       = 121; // all literals, identifiers, unrecognised tokens, and other keywords
+	private const TYPE_SPECIAL       = 122; // For special treatment of tokens that usually mean something else
 
 	private const ACTION_GOTO = 201; // Go to another state
 	private const ACTION_PUSH = 202; // Push a state to the stack
@@ -295,10 +294,6 @@ class JavaScriptMinifier {
 		'let'        => self::TYPE_VAR,
 		'const'      => self::TYPE_VAR,
 
-		// Import and export
-		'import'     => self::TYPE_IMPORT_EXPORT,
-		'export'     => self::TYPE_IMPORT_EXPORT,
-
 		// ECMAScript 6.0 § 14.1 Function Definitions
 		'function'   => self::TYPE_FUNC,
 		// ECMAScript 6.0 § 14.2 Arrow Function Definitions
@@ -395,8 +390,13 @@ class JavaScriptMinifier {
 				self::ACTION_PUSH => self::STATEMENT,
 				self::ACTION_GOTO => self::CLASS_DEF,
 			],
-			self::TYPE_IMPORT_EXPORT => [
-				self::ACTION_GOTO => self::IMPORT_EXPORT,
+			self::TYPE_SPECIAL => [
+				'import' => [
+					self::ACTION_GOTO => self::IMPORT_EXPORT,
+				],
+				'export' => [
+					self::ACTION_GOTO => self::IMPORT_EXPORT,
+				],
 			],
 			self::TYPE_LITERAL => [
 				self::ACTION_GOTO => self::EXPRESSION_OP,
@@ -984,7 +984,6 @@ class JavaScriptMinifier {
 			self::TYPE_VAR => true,
 			self::TYPE_FUNC => true,
 			self::TYPE_CLASS => true,
-			self::TYPE_IMPORT_EXPORT => true,
 			self::TYPE_LITERAL => true
 		],
 		self::EXPRESSION_OP => [
@@ -997,7 +996,6 @@ class JavaScriptMinifier {
 			self::TYPE_VAR => true,
 			self::TYPE_FUNC => true,
 			self::TYPE_CLASS => true,
-			self::TYPE_IMPORT_EXPORT => true,
 			self::TYPE_LITERAL => true
 		],
 		self::EXPRESSION_END => [
@@ -1012,7 +1010,6 @@ class JavaScriptMinifier {
 			self::TYPE_VAR => true,
 			self::TYPE_FUNC => true,
 			self::TYPE_CLASS => true,
-			self::TYPE_IMPORT_EXPORT => true,
 			self::TYPE_LITERAL => true
 		]
 	];

@@ -299,6 +299,9 @@ JAVASCRIPT
 			// Semicolon insertion before import/export
 			[ "( x, y ) => { return x + y; }\nexport class Foo {}", "(x,y)=>{return x+y;}\nexport class Foo{}" ],
 			[ "let x = y + 3\nimport Foo from 'thingy';", "let x=y+3\nimport Foo from'thingy';" ],
+			// Import/export as object properties
+			[ "x.export\n++y", "x.export\n++y" ],
+			[ "x.import\n++y", "x.import\n++y" ],
 		];
 	}
 
