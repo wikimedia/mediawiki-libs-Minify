@@ -62,45 +62,50 @@ class JavaScriptMinifier {
 	private const EXPRESSION                    = 6;
 	private const EXPRESSION_NO_NL              = 7;
 	private const EXPRESSION_OP                 = 8;
-	private const EXPRESSION_END                = 9;
-	private const EXPRESSION_ARROWFUNC          = 10;
-	private const EXPRESSION_TERNARY            = 11;
-	private const EXPRESSION_TERNARY_OP         = 12;
-	private const EXPRESSION_TERNARY_ARROWFUNC  = 13;
-	private const PAREN_EXPRESSION              = 14;
-	private const PAREN_EXPRESSION_OP           = 15;
-	private const PAREN_EXPRESSION_ARROWFUNC    = 16;
-	private const PROPERTY_EXPRESSION           = 17;
-	private const PROPERTY_EXPRESSION_OP        = 18;
-	private const PROPERTY_EXPRESSION_ARROWFUNC = 19;
-	private const CLASS_DEF                     = 20;
-	private const IMPORT_EXPORT                 = 21;
-	private const TEMPLATE_STRING_HEAD          = 22;
-	private const TEMPLATE_STRING_TAIL          = 23;
+	private const EXPRESSION_DOT                = 9;
+	private const EXPRESSION_END                = 10;
+	private const EXPRESSION_ARROWFUNC          = 11;
+	private const EXPRESSION_TERNARY            = 12;
+	private const EXPRESSION_TERNARY_OP         = 13;
+	private const EXPRESSION_TERNARY_DOT        = 14;
+	private const EXPRESSION_TERNARY_ARROWFUNC  = 15;
+	private const PAREN_EXPRESSION              = 16;
+	private const PAREN_EXPRESSION_OP           = 17;
+	private const PAREN_EXPRESSION_DOT          = 18;
+	private const PAREN_EXPRESSION_ARROWFUNC    = 19;
+	private const PROPERTY_EXPRESSION           = 20;
+	private const PROPERTY_EXPRESSION_OP        = 21;
+	private const PROPERTY_EXPRESSION_DOT       = 22;
+	private const PROPERTY_EXPRESSION_ARROWFUNC = 23;
+	private const CLASS_DEF                     = 24;
+	private const IMPORT_EXPORT                 = 25;
+	private const TEMPLATE_STRING_HEAD          = 26;
+	private const TEMPLATE_STRING_TAIL          = 27;
 
 	/* Token types */
 	private const TYPE_UN_OP         = 101; // unary operators
 	private const TYPE_INCR_OP       = 102; // ++ and --
-	private const TYPE_BIN_OP        = 103; // binary operators
+	private const TYPE_BIN_OP        = 103; // binary operators (except .)
 	private const TYPE_ADD_OP        = 104; // + and - which can be either unary or binary ops
-	private const TYPE_HOOK          = 105; // ?
-	private const TYPE_COLON         = 106; // :
-	private const TYPE_COMMA         = 107; // ,
-	private const TYPE_SEMICOLON     = 108; // ;
-	private const TYPE_BRACE_OPEN    = 109; // {
-	private const TYPE_BRACE_CLOSE   = 110; // }
-	private const TYPE_PAREN_OPEN    = 111; // ( and [
-	private const TYPE_PAREN_CLOSE   = 112; // ) and ]
-	private const TYPE_ARROW         = 113; // =>
-	private const TYPE_RETURN        = 114; // keywords: break, continue, return, throw
-	private const TYPE_IF            = 115; // keywords: catch, for, with, switch, while, if
-	private const TYPE_DO            = 116; // keywords: case, finally, else, do, try
-	private const TYPE_VAR           = 117; // keywords: var, let, const
-	private const TYPE_YIELD         = 118; // keywords: yield
-	private const TYPE_FUNC          = 119; // keywords: function
-	private const TYPE_CLASS         = 120; // keywords: class
-	private const TYPE_LITERAL       = 121; // all literals, identifiers, unrecognised tokens, and other keywords
-	private const TYPE_SPECIAL       = 122; // For special treatment of tokens that usually mean something else
+	private const TYPE_DOT           = 105; // .
+	private const TYPE_HOOK          = 106; // ?
+	private const TYPE_COLON         = 107; // :
+	private const TYPE_COMMA         = 108; // ,
+	private const TYPE_SEMICOLON     = 109; // ;
+	private const TYPE_BRACE_OPEN    = 110; // {
+	private const TYPE_BRACE_CLOSE   = 111; // }
+	private const TYPE_PAREN_OPEN    = 112; // ( and [
+	private const TYPE_PAREN_CLOSE   = 113; // ) and ]
+	private const TYPE_ARROW         = 114; // =>
+	private const TYPE_RETURN        = 115; // keywords: break, continue, return, throw
+	private const TYPE_IF            = 116; // keywords: catch, for, with, switch, while, if
+	private const TYPE_DO            = 117; // keywords: case, finally, else, do, try
+	private const TYPE_VAR           = 118; // keywords: var, let, const
+	private const TYPE_YIELD         = 119; // keywords: yield
+	private const TYPE_FUNC          = 120; // keywords: function
+	private const TYPE_CLASS         = 121; // keywords: class
+	private const TYPE_LITERAL       = 122; // all literals, identifiers, unrecognised tokens, and other keywords
+	private const TYPE_SPECIAL       = 123; // For special treatment of tokens that usually mean something else
 
 	private const ACTION_GOTO = 201; // Go to another state
 	private const ACTION_PUSH = 202; // Push a state to the stack
@@ -306,10 +311,10 @@ class JavaScriptMinifier {
 		//     class extends Expression { ClassBody }
 		'class'      => self::TYPE_CLASS,
 
-		// Can be one of:
-		// - DecimalLiteral (ECMAScript 6.0 § 11.8.3 Numeric Literals)
-		// - MemberExpression (ECMAScript 6.0 § 12.3 Left-Hand-Side Expressions)
-		'.'          => self::TYPE_BIN_OP,
+		// ECMAScript 6.0 § 12.3 Left-Hand-Side Expressions (MemberExpression)
+		// A dot can also be part of a DecimalLiteral, but in that case we handle the entire
+		// DecimalLiteral as one token. A separate '.' token is always part of a MemberExpression.
+		'.'          => self::TYPE_DOT,
 
 		// Can be one of:
 		// - Block (ECMAScript 6.0 § 13.2 Block)
@@ -439,6 +444,11 @@ class JavaScriptMinifier {
 		// Property assignment - This is an object literal declaration.
 		// For example: `{ key: value, key2, [computedKey3]: value3, method4() { ... } }`
 		self::PROPERTY_ASSIGNMENT => [
+			// Note that keywords like if, class, var, etc. can be used as keys, and should be
+			// treated as literals here, as they are in EXPRESSION_DOT. In this state, that is
+			// implicitly true because TYPE_LITERAL has no action, so it stays in this state.
+			// If we later add a state transition for TYPE_LITERAL, that same transition should
+			// also be applied to TYPE_RETURN, TYPE_IF, TYPE_DO, TYPE_VAR, TYPE_FUNC and TYPE_CLASS.
 			self::TYPE_COLON => [
 				self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
 			],
@@ -546,6 +556,9 @@ class JavaScriptMinifier {
 			self::TYPE_ADD_OP => [
 				self::ACTION_GOTO => self::EXPRESSION,
 			],
+			self::TYPE_DOT => [
+				self::ACTION_GOTO => self::EXPRESSION_DOT,
+			],
 			self::TYPE_HOOK => [
 				self::ACTION_PUSH => self::EXPRESSION,
 				self::ACTION_GOTO => self::EXPRESSION_TERNARY,
@@ -568,6 +581,33 @@ class JavaScriptMinifier {
 			],
 			self::TYPE_BRACE_CLOSE => [
 				self::ACTION_POP => true,
+			],
+		],
+		// State after a dot (.). Like EXPRESSION, except that many keywords behave like literals
+		// (e.g. class, if, else, var, function) because they're not valid as identifiers but are
+		// valid as property names.
+		self::EXPRESSION_DOT => [
+			self::TYPE_LITERAL => [
+				self::ACTION_GOTO => self::EXPRESSION_OP,
+			],
+			// The following are keywords behaving as literals
+			self::TYPE_RETURN => [
+				self::ACTION_GOTO => self::EXPRESSION_OP,
+			],
+			self::TYPE_IF => [
+				self::ACTION_GOTO => self::EXPRESSION_OP,
+			],
+			self::TYPE_DO => [
+				self::ACTION_GOTO => self::EXPRESSION_OP,
+			],
+			self::TYPE_VAR => [
+				self::ACTION_GOTO => self::EXPRESSION_OP,
+			],
+			self::TYPE_FUNC => [
+				self::ACTION_GOTO => self::EXPRESSION_OP,
+			],
+			self::TYPE_CLASS => [
+				self::ACTION_GOTO => self::EXPRESSION_OP,
 			],
 		],
 		// State after the } closing an arrow function body: like STATEMENT except
@@ -685,6 +725,9 @@ class JavaScriptMinifier {
 			self::TYPE_ADD_OP => [
 				self::ACTION_GOTO => self::EXPRESSION_TERNARY,
 			],
+			self::TYPE_DOT => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY_DOT,
+			],
 			self::TYPE_HOOK => [
 				self::ACTION_PUSH => self::EXPRESSION_TERNARY,
 				self::ACTION_GOTO => self::EXPRESSION_TERNARY,
@@ -701,6 +744,31 @@ class JavaScriptMinifier {
 			],
 			self::TYPE_COLON => [
 				self::ACTION_POP => true,
+			],
+		],
+		// Like EXPRESSION_DOT, but for ternaries, see EXPRESSION_TERNARY
+		self::EXPRESSION_TERNARY_DOT => [
+			self::TYPE_LITERAL => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY_OP,
+			],
+			// The following are keywords behaving as literals
+			self::TYPE_RETURN => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY_OP,
+			],
+			self::TYPE_IF => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY_OP,
+			],
+			self::TYPE_DO => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY_OP,
+			],
+			self::TYPE_VAR => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY_OP,
+			],
+			self::TYPE_FUNC => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY_OP,
+			],
+			self::TYPE_CLASS => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY_OP,
 			],
 		],
 		// Like EXPRESSION_ARROWFUNC, but for ternaries, see EXPRESSION_TERNARY
@@ -768,6 +836,9 @@ class JavaScriptMinifier {
 			self::TYPE_ADD_OP => [
 				self::ACTION_GOTO => self::PAREN_EXPRESSION,
 			],
+			self::TYPE_DOT => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION_DOT,
+			],
 			self::TYPE_HOOK => [
 				self::ACTION_GOTO => self::PAREN_EXPRESSION,
 			],
@@ -789,6 +860,31 @@ class JavaScriptMinifier {
 			],
 			self::TYPE_PAREN_CLOSE => [
 				self::ACTION_POP => true,
+			],
+		],
+		// Like EXPRESSION_DOT, but in parentheses, see PAREN_EXPRESSION
+		self::PAREN_EXPRESSION_DOT => [
+			self::TYPE_LITERAL => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION_OP,
+			],
+			// The following are keywords behaving as literals
+			self::TYPE_RETURN => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION_OP,
+			],
+			self::TYPE_IF => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION_OP,
+			],
+			self::TYPE_DO => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION_OP,
+			],
+			self::TYPE_VAR => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION_OP,
+			],
+			self::TYPE_FUNC => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION_OP,
+			],
+			self::TYPE_CLASS => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION_OP,
 			],
 		],
 		// Like EXPRESSION_ARROWFUNC, but in parentheses, see PAREN_EXPRESSION
@@ -856,6 +952,9 @@ class JavaScriptMinifier {
 			self::TYPE_ADD_OP => [
 				self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
 			],
+			self::TYPE_DOT => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_DOT,
+			],
 			self::TYPE_HOOK => [
 				self::ACTION_PUSH => self::PROPERTY_EXPRESSION,
 				self::ACTION_GOTO => self::EXPRESSION_TERNARY,
@@ -875,6 +974,31 @@ class JavaScriptMinifier {
 			self::TYPE_PAREN_OPEN => [
 				self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
 				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+		],
+		// Like EXPRESSION_DOT, but in a property expression, see PROPERTY_EXPRESSION
+		self::PROPERTY_EXPRESSION_DOT => [
+			self::TYPE_LITERAL => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_OP,
+			],
+			// The following are keywords behaving as literals
+			self::TYPE_RETURN => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_OP,
+			],
+			self::TYPE_IF => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_OP,
+			],
+			self::TYPE_DO => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_OP,
+			],
+			self::TYPE_VAR => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_OP,
+			],
+			self::TYPE_FUNC => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_OP,
+			],
+			self::TYPE_CLASS => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_OP,
 			],
 		],
 		// Like EXPRESSION_ARROWFUNC, but in a property expression, see PROPERTY_EXPRESSION

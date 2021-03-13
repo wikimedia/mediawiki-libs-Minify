@@ -299,9 +299,37 @@ JAVASCRIPT
 			// Semicolon insertion before import/export
 			[ "( x, y ) => { return x + y; }\nexport class Foo {}", "(x,y)=>{return x+y;}\nexport class Foo{}" ],
 			[ "let x = y + 3\nimport Foo from 'thingy';", "let x=y+3\nimport Foo from'thingy';" ],
-			// Import/export as object properties
+
+			// Reserved words as object properties
 			[ "x.export\n++y", "x.export\n++y" ],
 			[ "x.import\n++y", "x.import\n++y" ],
+			[ "x.class\n++y", "x.class\n++y" ],
+			[ "x.function\n++y", "x.function\n++y" ],
+			[ "x.yield\n++y", "x.yield\n++y" ],
+			[ "function *f() { x.yield\n++y }", "function*f(){x.yield\n++y}" ],
+			[ "x.var\n++y", "x.var\n++y" ],
+			[ "x.if\n++y", "x.if\n++y" ],
+			[ "x.else\n++y", "x.else\n++y" ],
+			[ "x.return\n++y", "x.return\n++y" ],
+
+			// Cover failure case of x.class polluting the state machine (T277161)
+			[
+				"(x && y.class);let obj = {}\n function f() { return\n42 }",
+				"(x&&y.class);let obj={}\nfunction f(){return\n42}"
+			],
+			[
+				"x ? y.class : y.foo\n let obj = {}\n function f() { return\n42 }",
+				"x?y.class:y.foo\nlet obj={}\nfunction f(){return\n42}"
+			],
+			[
+				"let x = {y: z.class}\n let obj = {}\n function f() { return\n42 }",
+				"let x={y:z.class}\nlet obj={}\nfunction f(){return\n42}"
+			],
+			// Reserved words as property names in an object literal
+			[
+				"let x = ( { class: 'foo' } ); let obj = {}\n function f() { return\n42 }",
+				"let x=({class:'foo'});let obj={}\nfunction f(){return\n42}"
+			],
 		];
 	}
 
@@ -712,7 +740,37 @@ JAVASCRIPT
 					"'thingy'",
 					';'
 				]
-			]
+			],
+			// Cover failure case of x.class polluting the state machine (T277161)
+			[
+				"let blah = (x && y.class); let obj = {}\n function g() { return 42; }",
+				[
+					'let',
+					'blah',
+					'=',
+					'(',
+					'x',
+					'&&',
+					'y',
+					'.',
+					'class',
+					')',
+					';',
+					'let',
+					'obj',
+					'=',
+					'{',
+					'}',
+					'function',
+					'g',
+					'(',
+					')',
+					'{',
+					'return 42',
+					';',
+					'}',
+				]
+			],
 		];
 	}
 
