@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.2.1 (2021-03-15)
+
+Fixed:
+
+* JavaScriptMinifier: Fix handling of keywords used as object properties. (Roan Kattouw) [T277161](https://phabricator.wikimedia.org/T277161)
+
 ## 2.2.0 (2021-03-09)
 
 Added:
