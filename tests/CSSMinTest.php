@@ -338,6 +338,11 @@ class CSSMinTest extends PHPUnit\Framework\TestCase {
 				'foo { prop: url(/quux/bar.png); }',
 			],
 			[
+				'Server-less path at document root (T282280)',
+				[ 'foo { prop: url(/quux/bar.png); }', false, '/', false ],
+				'foo { prop: url(/quux/bar.png); }',
+			],
+			[
 				'Protocol-relative URL',
 				[ 'foo { prop: url(../bar.png); }', false, '//example.org/quux/mid/', false ],
 				'foo { prop: url(//example.org/quux/bar.png); }',
