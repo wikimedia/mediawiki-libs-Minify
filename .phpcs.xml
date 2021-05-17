@@ -7,10 +7,10 @@
 		<exclude name="MediaWiki.Commenting.PhpunitAnnotations.ForbiddenRunInSeparateProcess"/>
 	</rule>
 	<rule ref="Generic.Files.LineLength.TooLong">
-		<exclude-pattern>*/tests/*\.php</exclude-pattern>
+		<exclude-pattern>*/tests/*</exclude-pattern>
 	</rule>
 	<rule ref="Generic.PHP.NoSilencedErrors.Discouraged">
-		<exclude-pattern>*/tests/*\.php</exclude-pattern>
+		<exclude-pattern>*/tests/*</exclude-pattern>
 	</rule>
 	<!-- RedundantVarName is currently too sensitive, incompatible with default Doxygen. -->
 	<rule ref="MediaWiki.Commenting.RedundantVarName.Found">
@@ -21,7 +21,5 @@
 	<file>bin/minify</file>
 	<arg name="encoding" value="UTF-8"/>
 	<arg name="extensions" value="php"/>
-	<exclude-pattern>coverage</exclude-pattern>
-	<exclude-pattern>vendor</exclude-pattern>
-	<exclude-pattern>doc/html</exclude-pattern>
+	<exclude-pattern type="relative">^doc/html/*</exclude-pattern>
 </ruleset>
