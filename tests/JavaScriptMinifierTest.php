@@ -330,6 +330,27 @@ JAVASCRIPT
 				"let x = ( { class: 'foo' } ); let obj = {}\n function f() { return\n42 }",
 				"let x=({class:'foo'});let obj={}\nfunction f(){return\n42}"
 			],
+			// Reserved words classified as operators as property names in dot notation (T283244)
+			[
+				"a.delete = function() { delete x; }\nb = 1",
+				"a.delete=function(){delete x;}\nb=1"
+			],
+			[
+				"a.instanceof = function() { delete x; }\nb = 1",
+				"a.instanceof=function(){delete x;}\nb=1"
+			],
+			[
+				"(x && y.delete); let obj = {}\n function f() { return\n42 }",
+				"(x&&y.delete);let obj={}\nfunction f(){return\n42}",
+			],
+			[
+				"x ? y.delete : y.foo\n let obj = {}\n function f() { return\n42 }",
+				"x?y.delete:y.foo\nlet obj={}\nfunction f(){return\n42}",
+			],
+			[
+				"let x = {y: z.delete}\n let obj = {}\n function f() { return\n42 }",
+				"let x={y:z.delete}\nlet obj={}\nfunction f(){return\n42}"
+			]
 		];
 	}
 
