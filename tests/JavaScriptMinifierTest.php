@@ -7,7 +7,7 @@ use Wikimedia\Minify\JavaScriptMinifier;
  */
 class JavaScriptMinifierTest extends PHPUnit\Framework\TestCase {
 
-	protected function tearDown() : void {
+	protected function tearDown(): void {
 		// Reset
 		$this->setMaxLineLength( 1000 );
 		parent::tearDown();

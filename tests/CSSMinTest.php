@@ -10,7 +10,7 @@ class CSSMinTest extends PHPUnit\Framework\TestCase {
 
 	private $files = [];
 
-	protected function tearDown() : void {
+	protected function tearDown(): void {
 		foreach ( $this->files as $file ) {
 			unlink( $file );
 		}

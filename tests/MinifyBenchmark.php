@@ -4,7 +4,7 @@ use Wikimedia\Minify\JavaScriptMinifier;
 
 class MinifyBenchmark {
 
-	public function run() : void {
+	public function run(): void {
 		// Avoid removing or changing existing bench fixtures (keep apples-to-apples reference).
 		$this->benchJavaScriptMinifier( 'jquery', 'https://code.jquery.com/jquery-3.2.1.js' );
 		$this->benchJavaScriptMinifier( 'vue-min', 'https://raw.githubusercontent.com/wikimedia/mediawiki/1.35.1/resources/lib/vue/vue.common.prod.js' );
@@ -12,7 +12,7 @@ class MinifyBenchmark {
 		$this->benchCSSMinRemap();
 	}
 
-	private function benchJavaScriptMinifier( $label, $srcUrl ) : void {
+	private function benchJavaScriptMinifier( $label, $srcUrl ): void {
 		$data = $this->loadTmpFile( $label, $srcUrl );
 		$iterations = 200;
 		$total = 0;
@@ -27,7 +27,7 @@ class MinifyBenchmark {
 		$this->outputStat( "JavaScriptMinifier ($label)", $total, $max, $iterations );
 	}
 
-	private function benchCSSMinMinify() : void {
+	private function benchCSSMinMinify(): void {
 		$data = $this->loadTmpFile( 'ooui', 'https://github.com/wikimedia/mediawiki/raw/1.31.0/resources/lib/oojs-ui/oojs-ui-core-wikimediaui.css' );
 		$iterations = 1000;
 		$total = 0;
@@ -42,7 +42,7 @@ class MinifyBenchmark {
 		$this->outputStat( 'CSSMin::minify (ooui)', $total, $max, $iterations );
 	}
 
-	private function benchCSSMinRemap() : void {
+	private function benchCSSMinRemap(): void {
 		$local = __DIR__ . '/data';
 		$data = file_get_contents( "{$local}/bench-remap-example.css" );
 		$iterations = 1000;
@@ -58,7 +58,7 @@ class MinifyBenchmark {
 		$this->outputStat( 'CSSMin::remap (example)', $total, $max, $iterations );
 	}
 
-	private function outputStat( string $name, $total, $max, $iterations ) : void {
+	private function outputStat( string $name, $total, $max, $iterations ): void {
 		$mean = $total / $iterations; // in milliseconds
 		$ratePerSecond = 1.0 / ( $mean / 1000.0 );
 		echo sprintf(
@@ -71,7 +71,7 @@ class MinifyBenchmark {
 		);
 	}
 
-	private function loadTmpFile( string $id, string $url ) : string {
+	private function loadTmpFile( string $id, string $url ): string {
 		$tmpPrefix = __DIR__ . "/data/tmp";
 		$version = md5( $url );
 		$file = "{$tmpPrefix}-{$id}.{$version}.dat";

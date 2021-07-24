@@ -7,7 +7,7 @@ use Wikimedia\Minify\Cli;
 class CliTest extends \PHPUnit\Framework\TestCase {
 	private $out;
 
-	protected function setUp() : void {
+	protected function setUp(): void {
 		$this->out = fopen( 'php://memory', 'rw' );
 	}
 
