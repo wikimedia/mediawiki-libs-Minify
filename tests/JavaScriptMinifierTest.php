@@ -792,6 +792,21 @@ JAVASCRIPT
 					'}',
 				]
 			],
+			// Cover failure case where ... is not recognized as a single token (T287526)
+			[
+				'let blah = foo( ...bar );',
+				[
+					'let',
+					'blah',
+					'=',
+					'foo',
+					'(',
+					'...',
+					'bar',
+					')',
+					';'
+				]
+			],
 		];
 	}
 
