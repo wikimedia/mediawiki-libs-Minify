@@ -184,16 +184,21 @@ class JavaScriptMinifierTest extends PHPUnit\Framework\TestCase {
 			[ "5...toString();", false ],
 			[ "5.\n.toString();", '5..toString();' ],
 
-			// Boolean minification (!0 / !1)
-			[ "var a = { b: true };", "var a={b:!0};" ],
+			// Boolean minification
+			[ "var a = { b: true };", "var a={b:true};" ],
 			[ "var a = { true: 12 };", "var a={true:12};" ],
 			[ "a.true = 12;", "a.true=12;" ],
-			[ "a.foo = true;", "a.foo=!0;" ],
-			[ "a.foo = false;", "a.foo=!1;" ],
-			[ "a.foo = bar ? false : true;", "a.foo=bar?!1:!0;" ],
-			[ "func( true, false )", "func(!0,!1)" ],
-			[ "function f() { return false; }", "function f(){return!1;}" ],
-			[ "let f = () => false;", "let f=()=>!1;" ],
+			[ "a.foo = true;", "a.foo=true;" ],
+			[ "a.foo = false;", "a.foo=false;" ],
+			[ "a.foo = bar ? false : true;", "a.foo=bar?false:true;" ],
+			[ "func( true, false )", "func(true,false)" ],
+			[ "function f() { return false; }", "function f(){return false;}" ],
+			[ "let f = () => false;", "let f=()=>false;" ],
+			// T237042: Beware of `true.toString()`.
+			// Changing to `!0.toString()` would be a syntax error.
+			// Changing to `!(0).toString()` would return bool false instead of string "true"
+			[ "true.toString();", "true.toString();" ],
+			[ "x = true.toString()", "x=true.toString()" ],
 
 			// Template strings
 			[ 'let a = `foo + ${ 1 + 2 } + bar`;', 'let a=`foo + ${1+2} + bar`;' ],
