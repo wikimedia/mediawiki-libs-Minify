@@ -1337,6 +1337,13 @@ class JavaScriptMinifier {
 				// and $ characters followed by something other than { or `
 				do {
 					$end += strcspn( $s, '`$\\', $end ) + 1;
+					if ( $end - 1 < $length && $s[$end - 1] === '`' ) {
+						// End of the string, stop
+						// We don't do this in the while() condition because the $end++ in the
+						// backslash escape branch makes it difficult to do so without incorrectly
+						// considering an escaped backtick (\`) the end of the string
+						break;
+					}
 					if ( $end - 1 < $length && $s[$end - 1] === '\\' ) {
 						// Backslash escape. Skip the next character, and keep going
 						$end++;
@@ -1355,9 +1362,9 @@ class JavaScriptMinifier {
 						$state = self::TEMPLATE_STRING_HEAD;
 						break;
 					}
-				} while ( $end - 1 < $length && $s[$end - 1] !== '`' );
+				} while ( $end - 1 < $length );
 				if ( $end > $length ) {
-					// Loop wrongly assumed an end quote ended the search,
+					// Loop wrongly assumed an end quote or ${ ended the search,
 					// but search ended because we've reached the end. Correct $end.
 					// TODO: This is invalid and should throw.
 					$end--;

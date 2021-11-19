@@ -207,7 +207,9 @@ class JavaScriptMinifierTest extends PHPUnit\Framework\TestCase {
 				'let a = `foo + ${ `bar + ${ `baz + ${ `quux` } + lol` } + ${ `yikes` } ` }`, b = 3;',
 				'let a=`foo + ${`bar + ${`baz + ${`quux`} + lol`} + ${`yikes`} `}`,b=3;'
 			],
-			[ 'let a = `foo$\\` + 23;', 'let a=`foo$\\`+23;' ],
+			[ 'let a = `foo$\\\\` + 23;', 'let a=`foo$\\\\`+23;' ],
+			// Template string with an escaped \`
+			[ 'let a = `foo\\`bar + baz`;', 'let a=`foo\\`bar + baz`;' ],
 
 			// Behavior of 'yield' in generator functions vs normal functions
 			[ "function *f( x ) {\n if ( x )\n yield\n ( 42 )\n}", "function*f(x){if(x)yield\n(42)}" ],
