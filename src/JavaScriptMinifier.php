@@ -1322,7 +1322,8 @@ class JavaScriptMinifier {
 					$end--;
 				}
 
-			// Handle template strings: beginning (`) or continuation after a ${ expression (} + tail state)
+			// Handle template strings, either from "`" to begin a new string,
+			// or continuation after the "}" that ends a "${"-expression.
 			} elseif ( $ch === '`' || ( $ch === '}' && $topOfStack === self::TEMPLATE_STRING_TAIL ) ) {
 				if ( $ch === '}' ) {
 					// Pop the TEMPLATE_STRING_TAIL state off the stack
