@@ -111,7 +111,7 @@ class JavaScriptMinifier {
 	private const ACTION_PUSH = 202; // Push a state to the stack
 	private const ACTION_POP = 203; // Pop the state from the top of the stack, and go to that state
 
-	// Sanity limit to avoid excessive memory usage
+	// Limit to avoid excessive memory usage
 	private const STACK_LIMIT = 1000;
 
 	// Length of the longest token in $tokenTypes made of punctuation characters,
