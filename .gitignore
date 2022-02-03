@@ -4,3 +4,7 @@
 /vendor
 /composer.lock
 /.phpunit.result.cache
+
+# For /tests/verifySourceMap.js
+/node_modules
+/package*.json

@@ -3,7 +3,7 @@
 	beStrictAboutOutputDuringTests="true">
 	<testsuites>
 		<testsuite name="Tests">
-			<directory>./tests</directory>
+			<directory>./tests/phpunit</directory>
 		</testsuite>
 	</testsuites>
 	<filter>

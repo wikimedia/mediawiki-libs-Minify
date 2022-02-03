@@ -424,7 +424,7 @@ class CSSMinTest extends PHPUnit\Framework\TestCase {
 	 * @dataProvider provideRemapRemappingCases
 	 */
 	public function testRemapRemapping( $message, $input, $expectedOutput, $expectWarning = false ) {
-		$localPath = __DIR__ . '/data';
+		$localPath = __DIR__ . '/../data';
 		$remotePath = 'http://localhost/w';
 
 		if ( !$expectWarning ) {

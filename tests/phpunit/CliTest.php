@@ -32,7 +32,7 @@ class CliTest extends \PHPUnit\Framework\TestCase {
 	}
 
 	public function testRunCssFile() {
-		$cli = new Cli( null, $this->out, [ '/self', 'css', __DIR__ . '/data/example.css' ] );
+		$cli = new Cli( null, $this->out, [ '/self', 'css', __DIR__ . '/../data/example.css' ] );
 		$cli->run();
 		$this->assertSame( ".foo,.bar{ prop:value}\n", $this->getOutput() );
 		$this->assertSame( 0, $cli->getExitCode(), 'exit code' );
@@ -57,9 +57,51 @@ class CliTest extends \PHPUnit\Framework\TestCase {
 	 * @runInSeparateProcess
 	 */
 	public function testRunJsFile() {
-		$cli = new Cli( null, $this->out, [ '/self', 'js', __DIR__ . '/data/example.js' ] );
+		$cli = new Cli( null, $this->out, [ '/self', 'js', __DIR__ . '/../data/example.js' ] );
 		$cli->run();
 		$this->assertSame( "function sum(a,b){return a+b;}\n", $this->getOutput() );
 		$this->assertSame( 0, $cli->getExitCode(), 'exit code' );
+	}
+
+	public static function provideSourceMapFiles() {
+		foreach ( glob( __DIR__ . '/../data/sourcemap/file?.js' ) as $path ) {
+			yield [
+				$path,
+				preg_replace( '/\.js$/', '.min.js', $path ),
+				preg_replace( '/\.js$/', '.js.map', $path )
+			];
+		}
+	}
+
+	/**
+	 * This is just testRunJsFile again but with the sourcemap data provider.
+	 *
+	 * @dataProvider provideSourceMapFiles
+	 */
+	public function testSourceMapMinify( $origPath, $minPath, $mapPath ) {
+		$cli = new Cli( null, $this->out, [ '/self', 'js', $origPath ] );
+		$cli->run();
+		$this->assertSame(
+			file_get_contents( $minPath ),
+			$this->getOutput()
+		);
+	}
+
+	/**
+	 * This test just ensures that the source map is identical to a previously
+	 * generated file. The files are rather opaque so can't really be verified
+	 * by inspection. So if the expected output changes, it has to be verified
+	 * by cross-checking against the Mozilla library consumer with
+	 * verifySourceMap.js.
+	 *
+	 * @dataProvider provideSourceMapFiles
+	 */
+	public function testSourceMap( $origPath, $minPath, $mapPath ) {
+		$cli = new Cli( null, $this->out, [ '/self', 'jsmap-web', $origPath ] );
+		$cli->run();
+		$this->assertSame(
+			file_get_contents( $mapPath ),
+			$this->getOutput()
+		);
 	}
 }
