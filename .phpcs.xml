@@ -5,6 +5,7 @@
 		<exclude name="MediaWiki.Commenting.PropertyDocumentation.MissingDocumentationPrivate"/>
 		<exclude name="MediaWiki.Commenting.FunctionComment.MissingDocumentationPrivate"/>
 		<exclude name="MediaWiki.Commenting.PhpunitAnnotations.ForbiddenRunInSeparateProcess"/>
+		<exclude name="MediaWiki.NamingConventions.PrefixedGlobalFunctions.allowedPrefix"/>
 	</rule>
 	<rule ref="Generic.Files.LineLength.TooLong">
 		<exclude-pattern>*/tests/*</exclude-pattern>
