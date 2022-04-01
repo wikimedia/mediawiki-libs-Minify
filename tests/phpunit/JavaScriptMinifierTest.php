@@ -176,13 +176,34 @@ class JavaScriptMinifierTest extends PHPUnit\Framework\TestCase {
 			// as long as it's a valid char. In future it might get normalized.
 			[ "var Ka\\u015dSkatolVal = {}", 'var Ka\\u015dSkatolVal={}' ],
 
-			// Some structures that might look invalid at first sight
+			// Numbers
+			// Fraction is optional
 			[ "var a = 5.;", "var a=5.;" ],
+			// No ambiguity after explicit fraction
 			[ "5.0.toString();", "5.0.toString();" ],
+			// No ambiguity after implicit fraction
 			[ "5..toString();", "5..toString();" ],
-			// Cover failure case for too many decimal points
-			[ "5...toString();", false ],
 			[ "5.\n.toString();", '5..toString();' ],
+			// No ambiguity after space (T303827)
+			[ "3\n.foo;", "3 .foo;" ],
+			[ "var _ = 2 .toString;", "var _=2 .toString;" ],
+			// Invalid syntax: Simple dot notation on number literals is ambigious
+			[ "3.foo;", "3.foo;" ],
+			// Invalid syntax: Too many decimal points
+			[ "5...toString();", false ],
+
+			// Cover states for dotless number literals with prop after space (T303827)
+			'STATEMENT dotless prop' => [ '42 .foo;', '42 .foo;' ],
+			'EXPRESSION dotless prop' => [ 'a = 42 .foo;', 'a=42 .foo;' ],
+			'EXPRESSION_NO_NL dotless prop' => [ 'throw 42 .foo;', 'throw 42 .foo;' ],
+			'EXPRESSION_END dotless prop' => [ "a = () => {}\n42 .foo;", "a=()=>{}\n42 .foo;" ],
+			'EXPRESSION_ARROWFUNC dotless prop' => [ "a = () => 42 .foo;", "a=()=>42 .foo;" ],
+			'EXPRESSION_TERNARY dotless prop' => [ "x ? 42 .foo : b;", "x?42 .foo:b;" ],
+			'EXPRESSION_TERNARY_ARROWFUNC dotless prop' => [ "x ? () => 42 .foo : b;", "x?()=>42 .foo:b;" ],
+			'PAREN_EXPRESSION dotless prop' => [ '( 42 .foo );', '(42 .foo);' ],
+			'PAREN_EXPRESSION_ARROWFUNC dotless prop' => [ "( () => 42 .foo);", "(()=>42 .foo);" ],
+			'PROPERTY_EXPRESSION dotless prop' => [ "a = { key: 42 .foo };", "a={key:42 .foo};" ],
+			'PROPERTY_EXPRESSION_ARROWFUNC dotless prop' => [ "a = { key: 42 .foo };", "a={key:42 .foo};" ],
 
 			// Boolean minification
 			[ "var a = { b: true };", "var a={b:true};" ],

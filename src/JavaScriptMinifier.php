@@ -150,6 +150,7 @@ class JavaScriptMinifier {
 		')' => true,
 		'[' => true,
 		']' => true,
+		// Dots have a special case after $dotlessNum which require whitespace
 		'.' => true,
 		';' => true,
 		',' => true,
@@ -1301,6 +1302,8 @@ class JavaScriptMinifier {
 		$pos = 0;
 		$length = strlen( $s );
 		$lineLength = 0;
+		$dotlessNum = false;
+		$lastDotlessNum = false;
 		$newlineFound = true;
 		$state = self::STATEMENT;
 		$stack = [];
@@ -1504,6 +1507,8 @@ class JavaScriptMinifier {
 						return self::parseError( $s, $end, 'The number has too many decimal points' );
 					}
 					$end += strspn( $s, '0123456789', $end + 1 ) + $decimal;
+				} else {
+					$dotlessNum = true;
 				}
 				$exponent = strspn( $s, 'eE', $end );
 				if ( $exponent ) {
@@ -1578,7 +1583,15 @@ class JavaScriptMinifier {
 			} elseif ( $last === $ch && ( $ch === '+' || $ch === '-' || $ch === '/' ) ) {
 				$pad = ' ';
 				$lineLength++;
+			// Don't create invalid dot notation after number literal (T303827).
+			// Keep whitespace in "42. foo".
+			// But keep minifying "foo.bar", "42..foo", and "42.0.foo" per $opChars.
+			} elseif ( $lastDotlessNum && $type === self::TYPE_DOT ) {
+				$pad = ' ';
+				$lineLength++;
 			}
+
+			// self::debug( $topOfStack, $last, $lastType, $state, $ch, $token, $type, );
 
 			if ( $mapGenerator ) {
 				$mapGenerator->outputSpace( $pad );
@@ -1591,6 +1604,8 @@ class JavaScriptMinifier {
 			$last = $s[$end - 1];
 			$pos = $end;
 			$newlineFound = false;
+			$lastDotlessNum = $dotlessNum;
+			$dotlessNum = false;
 
 			// Now that we have output our token, transition into the new state.
 			$actions = $type === self::TYPE_SPECIAL ?
@@ -1621,5 +1636,48 @@ class JavaScriptMinifier {
 	public static function parseError( $fullJavascript, $position, $errorMsg ) {
 		// TODO: Handle the error: trigger_error, throw exception, return false...
 		return false;
+	}
+
+	/**
+	 * @param null|false|int $top
+	 * @param string $last
+	 * @param int $lastType
+	 * @param int $state
+	 * @param string $ch
+	 * @param string $token
+	 * @param int $type
+	 */
+	private static function debug(
+		$top, string $last, int $lastType,
+		int $state, string $ch, string $token, int $type
+	) {
+		static $first = true;
+		$self = new \ReflectionClass( self::class );
+		$constants = $self->getConstants();
+
+		foreach ( $self->getConstants() as $name => $value ) {
+			if ( $value === $top ) {
+				$top = $name;
+			}
+			if ( $value === $lastType ) {
+				$lastType = $name;
+			}
+			if ( $value === $state ) {
+				$state = $name;
+			}
+			if ( $value === $type ) {
+				$type = $name;
+			}
+		}
+
+		if ( $first ) {
+			print sprintf( "| %-29s | %-4s | %-29s | %-29s | %-2s | %-10s | %-29s\n",
+				'topOfStack', 'last', 'lastType', 'state', 'ch', 'token', 'type' );
+			print sprintf( "| %'-29s | %'-4s | %'-29s | %'-29s | %'-2s | %'-10s | %'-29s\n",
+				'', '', '', '', '', '', '' );
+			$first = false;
+		}
+		print sprintf( "| %-29s | %-4s | %-29s | %-29s | %-2s | %-10s | %-29s\n",
+			(string)$top, $last, $lastType, $state, $ch, $token, $type );
 	}
 }
