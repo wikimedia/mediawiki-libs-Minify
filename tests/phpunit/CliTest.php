@@ -49,12 +49,10 @@ class CliTest extends \PHPUnit\Framework\TestCase {
 	}
 
 	/**
-	 * Let PHPUnit run this in a separate proc so that JavaScriptMinifierTest is able to
-	 * cover JavaScriptMinifier::ensureExpandedStates(). If and when we require PHP 8+.
-	 * this could be removed in favour of a JavaScriptMinifierTest::setUp() using
-	 * ReflectionProperty::getDefaultValue() to reset the static members of the class.
-	 *
-	 * @runInSeparateProcess
+	 * When we require PHP 8+, we could run this in a separate process so that
+	 * JavaScriptMinifierTest is able to cover JavaScriptMinifier::ensureExpandedStates()
+	 * via a JavaScriptMinifierTest::setUp() using ReflectionProperty::getDefaultValue()
+	 * to reset the static members of the class.
 	 */
 	public function testRunJsFile() {
 		$cli = new Cli( null, $this->out, [ '/self', 'js', __DIR__ . '/../data/example.js' ] );
