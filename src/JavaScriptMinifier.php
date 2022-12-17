@@ -334,7 +334,7 @@ class JavaScriptMinifier {
 		//   TYPE_IF or TYPE_FUNC keyword.
 		// - PrimaryExpression (ECMAScript 6.0 § 12.2 Primary Expression)
 		// - CallExpression (ECMAScript 6.0 § 12.3 Left-Hand-Side Expressions)
-		// - Beginning or an ArrowFunction (ECMAScript 6.0 § 14.2 Arrow Function Definitions)
+		// - Beginning of an ArrowFunction (ECMAScript 6.0 § 14.2 Arrow Function Definitions)
 		'('          => self::TYPE_PAREN_OPEN,
 		')'          => self::TYPE_PAREN_CLOSE,
 
