@@ -308,6 +308,7 @@ JAVASCRIPT
 
 			// Arrow functions
 			[ "let a = ( x, y ) => x + y;", "let a=(x,y)=>x+y;" ],
+			[ "let a = ( x, y ) => x ** y;", "let a=(x,y)=>x**y;" ],
 			[ "let a = ( x, y ) => { return \n x + y };", "let a=(x,y)=>{return\nx+y};" ],
 			[ "let a = ( x, y ) => { return x + y; }\n( 1, 2 )", "let a=(x,y)=>{return x+y;}\n(1,2)" ],
 			[ "let a = ( x, y ) => { return x + y; }\n+5", "let a=(x,y)=>{return x+y;}\n+5" ],
