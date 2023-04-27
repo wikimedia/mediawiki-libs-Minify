@@ -48,6 +48,16 @@ class CliTest extends \PHPUnit\Framework\TestCase {
 		$this->assertSame( 0, $cli->getExitCode(), 'exit code' );
 	}
 
+	public function testRunCssRemap() {
+		$cli = new Cli( null, $this->out, [ '/self', 'css-remap', __DIR__ . '/../data/embed-example.css' ] );
+		$cli->run();
+		$this->assertSame(
+			".foo{background:url(data:image/gif;base64,R0lGODlhAQABAIAAAACAADAAACwAAAAAAQABAAACAkQBADs=)}\n",
+			$this->getOutput()
+		);
+		$this->assertSame( 0, $cli->getExitCode(), 'exit code' );
+	}
+
 	/**
 	 * When we require PHP 8+, we could run this in a separate process so that
 	 * JavaScriptMinifierTest is able to cover JavaScriptMinifier::ensureExpandedStates()

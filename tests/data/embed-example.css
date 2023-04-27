@@ -1,0 +1,4 @@
+.foo {
+   /* @embed */
+   background: url(green.gif);
+}
