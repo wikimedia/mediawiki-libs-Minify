@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.5.0 (unreleased)
+
+Added:
+
+* IdentityMinifierState and JavaScriptMinifier::createIdentityMinifier(). (Tim Starling)
+* bin: Add `css-remap` command. (Timo Tijhof)
+
 ## 2.4.0 (2023-03-20)
 
 Added:
