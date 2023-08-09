@@ -4,8 +4,9 @@
 
 Added:
 
-* IdentityMinifierState and JavaScriptMinifier::createIdentityMinifier(). (Tim Starling)
 * bin: Add `css-remap` command. (Timo Tijhof)
+* IdentityMinifierState and JavaScriptMinifier::createIdentityMinifier(). (Tim Starling)
+* MinifierState::ensureNewline()
 
 ## 2.4.0 (2023-03-20)
 
