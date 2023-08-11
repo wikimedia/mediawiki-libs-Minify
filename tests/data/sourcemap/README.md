@@ -75,3 +75,26 @@ Error: Boo
     at quux (src/virtual/quux.js:3:10)
     at main (src/virtual/index.js:2:2)
 ```
+
+## Index map tests
+
+To generate `indexmap.min.js` and `indexmap.min.js.map`, run `php ./indexmap.php` in this directory.
+
+Open `indexmap.html` in any browser.
+
+Currently, there is no support for index maps in Node.js.
+
+Expected:
+
+```
+Boilerplate for foo.js
+Boilerplate for bar.js
+Boilerplate for quux.js
+Boilerplate for index.js
+Uncaught Error: Boo
+    foo foo.js:3
+    bar bar.js:2
+    quux quux.js:3
+    main index.js:2
+    <anonymous> index.js:5
+```
