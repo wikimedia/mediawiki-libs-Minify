@@ -1604,7 +1604,7 @@ class JavaScriptMinifier {
 				$lineLength++;
 			}
 
-			// self::debug( $topOfStack, $last, $lastType, $state, $ch, $token, $type, );
+			// self::debug( $topOfStack, $last, $state, $ch, $token, $type );
 
 			if ( $mapGenerator ) {
 				$mapGenerator->outputSpace( $pad );
@@ -1654,14 +1654,13 @@ class JavaScriptMinifier {
 	/**
 	 * @param null|false|int $top
 	 * @param string $last
-	 * @param int $lastType
 	 * @param int $state
 	 * @param string $ch
 	 * @param string $token
 	 * @param int $type
 	 */
 	private static function debug(
-		$top, string $last, int $lastType,
+		$top, string $last,
 		int $state, string $ch, string $token, int $type
 	) {
 		static $first = true;
@@ -1672,9 +1671,6 @@ class JavaScriptMinifier {
 			if ( $value === $top ) {
 				$top = $name;
 			}
-			if ( $value === $lastType ) {
-				$lastType = $name;
-			}
 			if ( $value === $state ) {
 				$state = $name;
 			}
@@ -1684,13 +1680,13 @@ class JavaScriptMinifier {
 		}
 
 		if ( $first ) {
-			print sprintf( "| %-29s | %-4s | %-29s | %-29s | %-2s | %-10s | %-29s\n",
-				'topOfStack', 'last', 'lastType', 'state', 'ch', 'token', 'type' );
-			print sprintf( "| %'-29s | %'-4s | %'-29s | %'-29s | %'-2s | %'-10s | %'-29s\n",
-				'', '', '', '', '', '', '' );
+			print sprintf( "| %-29s | %-4s | %-29s | %-2s | %-10s | %-29s\n",
+				'topOfStack', 'last', 'state', 'ch', 'token', 'type' );
+			print sprintf( "| %'-29s | %'-4s | %'-29s | %'-2s | %'-10s | %'-29s\n",
+				'', '', '', '', '', '' );
 			$first = false;
 		}
-		print sprintf( "| %-29s | %-4s | %-29s | %-29s | %-2s | %-10s | %-29s\n",
-			(string)$top, $last, $lastType, $state, $ch, $token, $type );
+		print sprintf( "| %-29s | %-4s | %-29s | %-2s | %-10s | %-29s\n",
+			(string)$top, $last, $state, $ch, $token, $type );
 	}
 }
