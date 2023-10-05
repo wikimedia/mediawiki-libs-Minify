@@ -10,7 +10,8 @@ A😀😀😀(b, c);
 /* */ d();
 e(); /*
 */ f(); /*
-*/ g();
+*/ g(`
+`);
 
 // semicolon insertion, pad=\n
 h(i)
