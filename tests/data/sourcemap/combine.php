@@ -11,17 +11,17 @@ function main() {
 		$inputs[] = [
 			'url' => './src/virtual/' . $file,
 			'before' => "\nconsole.log('Boilerplate for $file');",
-			'content' => file_get_contents( __DIR__ . '/combine-' . $file ),
+			'content' => file_get_contents( __DIR__ . '/src-' . $file ),
 			'after' => "/* So long $file */",
 		];
 	}
 
-	// Create the "production"-like response,
-	// this skips mapping state for optimal performance.
+	// Create the minified response
+	// During this step, we skip mapping state for optimal performance.
 	$state = JavaScriptMinifier::createMinifier();
 	foreach ( $inputs as $input ) {
 		$state->addOutput( $input['before'] );
-		$state->addSourceFile( $input['url'], $input['content'] );
+		$state->addSourceFile( $input['url'], $input['content'], true );
 		$state->addOutput( $input['after'] );
 	}
 	$js = $state->getMinifiedOutput() . "\n" . '//# sourceMappingURL=combine.min.js.map';
@@ -30,7 +30,7 @@ function main() {
 	$state = JavaScriptMinifier::createSourceMapState();
 	foreach ( $inputs as $input ) {
 		$state->addOutput( $input['before'] );
-		$state->addSourceFile( $input['url'], $input['content'] );
+		$state->addSourceFile( $input['url'], $input['content'], true );
 		$state->addOutput( $input['after'] );
 	}
 	$map = $state->getRawSourceMap();
@@ -40,4 +40,3 @@ function main() {
 }
 
 main();
-echo "Done!\n";

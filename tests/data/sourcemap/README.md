@@ -1,42 +1,47 @@
-
-## verifySourceMap.js
-
 The files in this directory are:
 
 - file?.js: Test input
 - file?.min.js: Expected minifier output
 - file?.js.map: Expected map output
 
-To update the expected output, use
+To update the expected output, run `make` in this directory, or run the commands listed in the Makefile.
+
+## verifySourceMap.js
+
+Automatically verify the correctness of a source map file using Mozilla's [source-map](https://github.com/mozilla/source-map) package.
 
 ```
-php bin/minify js tests/data/sourcemap/file1.js > tests/data/sourcemap/file1.min.js
-php bin/minify jsmap-web tests/data/sourcemap/file1.js > tests/data/sourcemap/file1.js.map
 npm install source-map@0.7.3
-node tests/verifySourceMap.js tests/data/sourcemap/file1.js
+node tests/verifySourceMap.js tests/data/sourcemap/advanced.js
 ```
 
 verifySourceMap.js should exit with status 0 if the map appears valid.
 
-## simple.js
+## End-to-end integration
 
-To generate the files derived from simple.js, use:
+Manually verify end-to-end correctness as seen by a web browser, or Node.js.
+
+- `simple.html` and `simple.min.js`:
+  A single file with fairly simple code, minified, and mapped to its source.
+- `combine.html` and `combine.min.js`:
+  Multiple files combined and minified, with a single sourcemap that maps
+  each chunk back to the appropriate source file.
+- `production.html` and `production.min.js`:
+  Multiple files combined and minified, with bundled source code (thus using
+  virtual path as file names, which don't rely on web access to the original
+  source), and an index map that allows each minified chunk to be cacheable
+  with its own source map.
+  This is the most realistic and represents how Wikimedia uses this
+  library in production.
+
+To verify behaviour in a browser, open a `.html` file (no web server
+necessary). Or, in Node.js, run:
 
 ```
-php bin/minify jsmap-raw tests/data/sourcemap/simple.js > tests/data/sourcemap/simple.min.js.map
-php bin/minify js tests/data/sourcemap/simple.js > tests/data/sourcemap/simple.min.js
-echo -e "//# sourceMappingURL=simple.min.js.map" >> tests/data/sourcemap/simple.min.js
+node --enable-source-maps tests/data/sourcemap/production.min.js
 ```
 
-Open `simple.html` in any browser, to verify it there.
-
-To verify on Node.js, run:
-
-```
-node --enable-source-maps tests/data/sourcemap/simple.min.js
-```
-
-Expected:
+Expected result in the console:
 
 ```
 simple.js:3
@@ -48,53 +53,4 @@ Error: Boo
     at bar (simple.js:9:15)
     at quux (simple.js:14:10)
     at main (simple.js:20:2)
-```
-
-## combine.js
-
-To generate `combine.js`  and related files, run `php ./combine.php` in this directory.
-
-Open `combine.html` in any browser, to verify it there.
-
-To verify on Node.js, run:
-
-```
-node --enable-source-maps tests/data/sourcemap/combine.min.js
-```
-
-Expected:
-
-```
-Boilerplate for foo.js
-Boilerplate for bar.js
-Boilerplate for quux.js
-Boilerplate for index.js
-Error: Boo
-    at foo (src/virtual/foo.js:3:9)
-    at bar (src/virtual/bar.js:2:15)
-    at quux (src/virtual/quux.js:3:10)
-    at main (src/virtual/index.js:2:2)
-```
-
-## Index map tests
-
-To generate `indexmap.min.js` and `indexmap.min.js.map`, run `php ./indexmap.php` in this directory.
-
-Open `indexmap.html` in any browser.
-
-Currently, there is no support for index maps in Node.js.
-
-Expected:
-
-```
-Boilerplate for foo.js
-Boilerplate for bar.js
-Boilerplate for quux.js
-Boilerplate for index.js
-Uncaught Error: Boo
-    foo foo.js:3
-    bar bar.js:2
-    quux quux.js:3
-    main index.js:2
-    <anonymous> index.js:5
 ```
