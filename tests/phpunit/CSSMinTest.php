@@ -50,6 +50,17 @@ class CSSMinTest extends PHPUnit\Framework\TestCase {
 	}
 
 	/**
+	 * Ignore url() expressions that have been commented out.
+	 */
+	public function testGetLocalFileReferencesCommented() {
+		$localDir = __DIR__ . '/../data';
+		$css = file_get_contents( "$localDir/url-commented.css" );
+		$files = CSSMin::getLocalFileReferences( $css, $localDir );
+		$expected = [ "$localDir/circle.svg" ];
+		$this->assertSame( $expected, $files );
+	}
+
+	/**
 	 * @dataProvider provideSerializeStringValue
 	 * @covers ::serializeStringValue
 	 */

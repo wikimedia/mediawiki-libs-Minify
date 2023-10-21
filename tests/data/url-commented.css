@@ -1,0 +1,19 @@
+.selector {
+	background: none;
+	background-image: url(circle.svg);
+	background: none;
+	background-image: /* url(value.svg) */
+	background: none;
+	background-image: /* url(value-semi.svg); */;
+	background: none;
+	/* background-image: url(declaration.svg); */
+	background: none;
+	/* background-image: url(declaration-semi.svg) */;
+	background: none;
+}
+
+/*
+.selector { background-image: url(block-line.svg); }
+*/
+
+/* .selector { background-image: url(one-line.gif); } */
