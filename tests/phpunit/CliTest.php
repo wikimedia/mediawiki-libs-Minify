@@ -72,11 +72,12 @@ class CliTest extends \PHPUnit\Framework\TestCase {
 	}
 
 	public static function provideSourceMapFiles() {
-		foreach ( glob( __DIR__ . '/../data/sourcemap/file?.js' ) as $path ) {
-			yield [
+		foreach ( [ 'advanced.js' ] as $file ) {
+			$path = __DIR__ . "/../data/sourcemap/$file";
+			yield $file => [
 				$path,
 				preg_replace( '/\.js$/', '.min.js', $path ),
-				preg_replace( '/\.js$/', '.js.map', $path )
+				preg_replace( '/\.js$/', '.min.js.map', $path )
 			];
 		}
 	}

@@ -11,7 +11,7 @@ To update the expected output, run `make` in this directory, or run the commands
 Automatically verify the correctness of a source map file using Mozilla's [source-map](https://github.com/mozilla/source-map) package.
 
 ```
-npm install source-map@0.7.3
+npm install source-map@0.7.4
 node tests/verifySourceMap.js tests/data/sourcemap/advanced.js
 ```
 

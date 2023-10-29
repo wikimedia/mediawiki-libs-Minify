@@ -8,7 +8,7 @@ const fs = require( 'fs' );
 async function main() {
 	let status = 0;
 	const originalFileName = process.argv[2];
-	const mapFileName = originalFileName + '.map';
+	const mapFileName = originalFileName.replace( '.js', '.min.js.map' );
 	const minifiedFileName = originalFileName.replace( '.js', '.min.js' );
 
 	let mapData = fs.readFileSync( mapFileName, { encoding: 'utf8' } );
