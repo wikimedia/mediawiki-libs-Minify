@@ -379,7 +379,15 @@ JAVASCRIPT
 			[
 				"let x = {y: z.delete}\n let obj = {}\n function f() { return\n42 }",
 				"let x={y:z.delete}\nlet obj={}\nfunction f(){return\n42}"
-			]
+			],
+			[
+				"var\n x \n = \n async \n function foo(){}",
+				"var x=async\nfunction foo(){}"
+			],
+			[
+				"var test = function( async\n) { var\n x \n = \n async \n function foo(){} }",
+				"var test=function(async){var x=async\nfunction foo(){}}"
+			],
 		];
 	}
 
@@ -834,6 +842,87 @@ JAVASCRIPT
 					'bar',
 					')',
 					';'
+				]
+			],
+			'async function declaration' => [
+				"async function test( x ) { await x.login(); }",
+				[
+					'async function',
+					'test',
+					'(',
+					'x',
+					')',
+					'{',
+					'await',
+					'x',
+					'.',
+					'login',
+					'(',
+					')',
+					';',
+					'}',
+				]
+			],
+			'async function expression' => [
+				"var test = async function( x ) { await x.login(); }",
+				[
+					'var',
+					'test',
+					'=',
+					'async function',
+					'(',
+					'x',
+					')',
+					'{',
+					'await',
+					'x',
+					'.',
+					'login',
+					'(',
+					')',
+					';',
+					'}',
+				]
+			],
+			'async function paren expression' => [
+				"var test = [ async function( x ) {} ]",
+				[
+					'var',
+					'test',
+					'=',
+					'[',
+					'async function',
+					'(',
+					'x',
+					')',
+					'{',
+					'}',
+					']'
+				]
+			],
+			'async as literal' => [
+				"var x = { async: 1 }, async = x.async; function y() { return async; }",
+				[
+					'var',
+					'x',
+					'=',
+					'{',
+					'async',
+					':',
+					'1',
+					'}',
+					',',
+					'async',
+					'=',
+					'x',
+					'.',
+					'async',
+					';',
+					'function y',
+					'(',
+					'){return async',
+					';',
+					'}',
 				]
 			],
 		];
