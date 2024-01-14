@@ -388,6 +388,39 @@ JAVASCRIPT
 				"var test = function( async\n) { var\n x \n = \n async \n function foo(){} }",
 				"var test=function(async){var x=async\nfunction foo(){}}"
 			],
+			// Async arrow function expressions
+			[
+				"var\n x \n = \n async () => {  return 1; }",
+				"var x=async()=>{return 1;}"
+			],
+			// Async class methods
+			[
+				"class User { getId() {\nreturn 42;}\n\n async  login() {\n  return true;\n }\n }",
+				"class User{getId(){return 42;}async login(){return true;}}"
+			],
+			// Async object methods
+			[
+				"const obj = { foo: 1,\n async login() {await user.login();}\n}",
+				"const obj={foo:1,async login(){await user.login();}}"
+			],
+			// Async IIFE
+			[
+				"(async function() { \n class User { \n async login() { \n console.log('login'); \n }\n }" .
+					"await new User().login();\n\n  })();",
+				"(async function(){class User{async login(){console.log('login');}}await new User().login();})();"
+			],
+			// Trailing comma in function declaration
+			[
+				"function myFunc(\n  parOne,\nparTwo,\nparThree, // Trailing comma is valid here.\n) {}",
+				// TODO: trailing comma should be removed
+				"function myFunc(parOne,parTwo,parThree,){}"
+			],
+			// Trailing comma in function call
+			[
+				"var  x =  fun(1,  2,3,\n 4,\n ) ;",
+				// TODO: trailing comma should be removed
+				"var x=fun(1,2,3,4,);"
+			],
 		];
 	}
 
