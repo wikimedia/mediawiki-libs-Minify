@@ -4,6 +4,7 @@
 		<exclude name="MediaWiki.WhiteSpace.SpaceBeforeSingleLineComment.NewLineComment"/>
 		<exclude name="MediaWiki.Commenting.PropertyDocumentation.MissingDocumentationPrivate"/>
 		<exclude name="MediaWiki.Commenting.FunctionComment.MissingDocumentationPrivate"/>
+		<exclude name="MediaWiki.Commenting.FunctionComment.MissingDocumentationProtected"/>
 		<exclude name="MediaWiki.NamingConventions.PrefixedGlobalFunctions.allowedPrefix"/>
 	</rule>
 	<rule ref="Generic.Files.LineLength.TooLong">

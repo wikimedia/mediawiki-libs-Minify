@@ -1333,11 +1333,13 @@ class JavaScriptMinifier {
 	/**
 	 * Returns minified JavaScript code.
 	 *
+	 * @see MinifierState::setErrorHandler
 	 * @param string $s JavaScript code to minify
-	 * @return string|bool Minified code or false on failure
+	 * @param callable|null $onError Called with a ParserError object
+	 * @return string Minified code
 	 */
-	public static function minify( $s ) {
-		return self::minifyInternal( $s );
+	public static function minify( $s, $onError = null ) {
+		return self::minifyInternal( $s, null, $onError );
 	}
 
 	/**
@@ -1389,13 +1391,15 @@ class JavaScriptMinifier {
 	 *
 	 * @param string $s
 	 * @param MappingsGenerator|null $mapGenerator
-	 * @return bool|string
+	 * @param callable|null $onError
+	 * @return string
 	 */
-	public static function minifyInternal( $s, $mapGenerator = null ) {
+	public static function minifyInternal( $s, $mapGenerator = null, $onError = null ) {
 		self::ensureExpandedStates();
 
 		// Here's where the minifying takes place: Loop through the input, looking for tokens
 		// and output them to $out, taking actions to the above defined rules when appropriate.
+		$error = null;
 		$out = '';
 		$pos = 0;
 		$length = strlen( $s );
@@ -1580,11 +1584,10 @@ class JavaScriptMinifier {
 				// Hex numeric literal
 				$end++; // x or X
 				$len = strspn( $s, '0123456789ABCDEFabcdef', $end );
-				if ( !$len ) {
-					return self::parseError(
-						$s,
+				if ( !$len && !$error ) {
+					$error = new ParseError(
+						'Expected a hexadecimal number but found ' . substr( $s, $pos, 5 ),
 						$pos,
-						'Expected a hexadecimal number but found ' . substr( $s, $pos, 5 ) . '...'
 					);
 				}
 				$end += $len;
@@ -1601,8 +1604,8 @@ class JavaScriptMinifier {
 				$end += strspn( $s, '0123456789', $end );
 				$decimal = strspn( $s, '.', $end );
 				if ( $decimal ) {
-					if ( $decimal > 2 ) {
-						return self::parseError( $s, $end, 'The number has too many decimal points' );
+					if ( $decimal > 2 && !$error ) {
+						$error = new ParseError( 'Too many decimal points', $end );
 					}
 					$end += strspn( $s, '0123456789', $end + 1 ) + $decimal;
 				} else {
@@ -1610,19 +1613,18 @@ class JavaScriptMinifier {
 				}
 				$exponent = strspn( $s, 'eE', $end );
 				if ( $exponent ) {
-					if ( $exponent > 1 ) {
-						return self::parseError( $s, $end, 'Number with several E' );
+					if ( $exponent > 1 && !$error ) {
+						$error = new ParseError( 'Number with several E', $end );
 					}
-					$end++;
+					$end += $exponent;
 
 					// + sign is optional; - sign is required.
 					$end += strspn( $s, '-+', $end );
 					$len = strspn( $s, '0123456789', $end );
-					if ( !$len ) {
-						return self::parseError(
-							$s,
-							$pos,
-							'No decimal digits after e, how many zeroes should be added?'
+					if ( !$len && !$error ) {
+						$error = new ParseError(
+							'Missing decimal digits after exponent',
+							$pos
 						);
 					}
 					$end += $len;
@@ -1722,18 +1724,10 @@ class JavaScriptMinifier {
 				$state = $actions[self::ACTION_GOTO];
 			}
 		}
+		if ( $onError && $error ) {
+			$onError( $error );
+		}
 		return $out;
-	}
-
-	/**
-	 * @param string $fullJavascript
-	 * @param int $position
-	 * @param string $errorMsg
-	 * @return bool
-	 */
-	public static function parseError( $fullJavascript, $position, $errorMsg ) {
-		// TODO: Handle the error: trigger_error, throw exception, return false...
-		return false;
 	}
 
 	/**

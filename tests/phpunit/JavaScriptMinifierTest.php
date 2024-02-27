@@ -1,5 +1,6 @@
 <?php
 use Wikimedia\Minify\JavaScriptMinifier;
+use Wikimedia\Minify\ParseError;
 
 /**
  * @covers Wikimedia\Minify\JavaScriptMinifier
@@ -79,14 +80,14 @@ class JavaScriptMinifierTest extends PHPUnit\Framework\TestCase {
 			[ "5.3.\nx;", "5.3.x;" ],
 
 			// Cover failure case for incomplete hex literal
-			[ "0x;", false ],
+			[ "0x;", "0x;", 'Expected a hexadecimal number but found 0x;' ],
 
 			// Cover failure case for number with no digits after E
-			[ "1.4E", false ],
+			[ "1.4E", "1.4E", 'Missing decimal digits after exponent' ],
 
 			// Cover failure case for number with several E
-			[ "1.4EE2", false ],
-			[ "1.4EE", false ],
+			[ "1.4EE2", "1.4EE2", 'Number with several E' ],
+			[ "1.4EE", "1.4EE", 'Number with several E' ],
 
 			// Cover failure case for number with several E (nonconsecutive)
 			// FIXME: This is invalid, but currently tolerated
@@ -190,7 +191,7 @@ class JavaScriptMinifierTest extends PHPUnit\Framework\TestCase {
 			// Invalid syntax: Simple dot notation on number literals is ambigious
 			[ "3.foo;", "3.foo;" ],
 			// Invalid syntax: Too many decimal points
-			[ "5...toString();", false ],
+			[ "5...toString();", "5...toString();", 'Too many decimal points' ],
 
 			// Cover states for dotless number literals with prop after space (T303827)
 			'STATEMENT dotless prop' => [ '42 .foo;', '42 .foo;' ],
@@ -427,14 +428,22 @@ JAVASCRIPT
 	/**
 	 * @dataProvider provideCases
 	 */
-	public function testMinifyOutput( $code, $expectedOutput ) {
-		$minified = JavaScriptMinifier::minify( $code );
-
+	public function testMinifyOutput( $code, $expectedOutput, $errorMsg = null ) {
+		$error = null;
+		$minified = JavaScriptMinifier::minify( $code, static function ( $e ) use ( &$error ) {
+			$error = $e;
+		} );
 		$this->assertEquals(
 			$expectedOutput,
 			$minified,
 			"Minified output should be in the form expected."
 		);
+		if ( $errorMsg ) {
+			$this->assertInstanceOf( ParseError::class, $error, 'Returned error' );
+			$this->assertEquals( $errorMsg, $error->getMessage(), 'Error message' );
+		} else {
+			$this->assertSame( null, $error, 'Returned error' );
+		}
 	}
 
 	public static function provideLineBreaker() {
