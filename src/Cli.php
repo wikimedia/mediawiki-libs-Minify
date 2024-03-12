@@ -56,29 +56,29 @@ final class Cli {
 	public function run(): void {
 		try {
 			switch ( $this->command ) {
-			case 'css':
-				$this->runCss( ...$this->params );
-				break;
-			case 'css-remap':
-				$this->runCssRemap( ...$this->params );
-				break;
-			case 'js':
-				$this->runJs( ...$this->params );
-				break;
-			case 'jsmap-web':
-				$this->runJsMapWeb( ...$this->params );
-				break;
-			case 'jsmap-raw':
-				$this->runJsMapRaw( ...$this->params );
-				break;
-			case '':
-			case 'help':
-				$this->exitCode = 1;
-				$this->help();
-				break;
-			default:
-				$this->error( 'Unknown command' );
-				break;
+				case 'css':
+					$this->runCss( ...$this->params );
+					break;
+				case 'css-remap':
+					$this->runCssRemap( ...$this->params );
+					break;
+				case 'js':
+					$this->runJs( ...$this->params );
+					break;
+				case 'jsmap-web':
+					$this->runJsMapWeb( ...$this->params );
+					break;
+				case 'jsmap-raw':
+					$this->runJsMapRaw( ...$this->params );
+					break;
+				case '':
+				case 'help':
+					$this->exitCode = 1;
+					$this->help();
+					break;
+				default:
+					$this->error( 'Unknown command' );
+					break;
 			}
 		} catch ( \Throwable $e ) {
 			$this->exitCode = 1;
