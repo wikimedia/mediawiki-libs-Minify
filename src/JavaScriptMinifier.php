@@ -25,6 +25,8 @@
 
 namespace Wikimedia\Minify;
 
+use ReflectionClass;
+
 /**
  * JavaScript Minifier
  *
@@ -41,7 +43,7 @@ namespace Wikimedia\Minify;
  * output.
  *
  * This class has limited support for 8.0 spec ("ECMAScript 2017"), specifically, the await
- * keyword and most kinds of async functions are implemented. Other new parsing features of ES2017
+ * keyword, and most kinds of async functions are implemented. Other new parsing features of ES2017
  * are not yet supported.
  *
  * See also:
@@ -1299,20 +1301,26 @@ class JavaScriptMinifier {
 		// These negative states represent states inside generator functions. When in these states,
 		// TYPE_YIELD is treated as TYPE_RETURN, otherwise as TYPE_LITERAL
 		foreach ( self::$model as $state => $transitions ) {
-			if ( $state !== self::FUNC && $state !== self::GENFUNC ) {
-				foreach ( $transitions as $tokenType => $actions ) {
-					foreach ( $actions as $action => $target ) {
-						if ( is_array( $target ) ) {
-							foreach ( $target as $subaction => $subtarget ) {
-								self::$model[-$state][$tokenType][$action][$subaction] =
-									$subtarget === self::FUNC || $subtarget === true || $subtarget === self::GENFUNC
-									? $subtarget : -$subtarget;
-							}
-						} else {
-							self::$model[-$state][$tokenType][$action] =
-								$target === self::FUNC || $target === true || $target === self::GENFUNC
-								? $target : -$target;
-						}
+			if ( $state === self::FUNC || $state === self::GENFUNC ) {
+				continue;
+			}
+			foreach ( $transitions as $tokenType => $actions ) {
+				foreach ( $actions as $action => $target ) {
+					if ( !is_array( $target ) ) {
+						self::$model[-$state][$tokenType][$action] = (
+							$target === self::FUNC ||
+							$target === true ||
+							$target === self::GENFUNC
+						) ? $target : -$target;
+						continue;
+					}
+
+					foreach ( $target as $subaction => $subtarget ) {
+						self::$model[-$state][$tokenType][$action][$subaction] = (
+							$subtarget === self::FUNC ||
+							$subtarget === true ||
+							$subtarget === self::GENFUNC
+						) ? $subtarget : -$subtarget;
 					}
 				}
 			}
@@ -1743,8 +1751,7 @@ class JavaScriptMinifier {
 		int $state, string $ch, string $token, int $type
 	) {
 		static $first = true;
-		$self = new \ReflectionClass( self::class );
-		$constants = $self->getConstants();
+		$self = new ReflectionClass( self::class );
 
 		foreach ( $self->getConstants() as $name => $value ) {
 			if ( $value === $top ) {

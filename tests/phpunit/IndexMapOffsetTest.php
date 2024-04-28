@@ -1,11 +1,12 @@
 <?php
 
+use PHPUnit\Framework\TestCase;
 use Wikimedia\Minify\IndexMapOffset;
 
 /**
  * @covers \Wikimedia\Minify\IndexMapOffset
  */
-class IndexMapOffsetTest extends PHPUnit\Framework\TestCase {
+class IndexMapOffsetTest extends TestCase {
 	public function testConstruct() {
 		$offset = new IndexMapOffset( 3, 6 );
 		$this->assertSame( 3, $offset->line );

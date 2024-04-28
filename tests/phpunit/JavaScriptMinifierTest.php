@@ -1,12 +1,13 @@
 <?php
+
+use PHPUnit\Framework\TestCase;
 use Wikimedia\Minify\JavaScriptMinifier;
 use Wikimedia\Minify\ParseError;
 
 /**
- * @covers Wikimedia\Minify\JavaScriptMinifier
- * @coversDefaultClass Wikimedia\Minify\JavaScriptMinifier
+ * @covers \Wikimedia\Minify\JavaScriptMinifier
  */
-class JavaScriptMinifierTest extends PHPUnit\Framework\TestCase {
+class JavaScriptMinifierTest extends TestCase {
 
 	protected function tearDown(): void {
 		// Reset
@@ -550,7 +551,7 @@ JAVASCRIPT
 			[
 				// Regression test for T201606.
 				// Must not break between 'return' and Expression.
-				// Was caused by bad state after a ternary in the expression value
+				// This was caused by a bad state after a ternary in the expression value
 				// for a key in an object literal.
 				<<<JAVASCRIPT
 call( {

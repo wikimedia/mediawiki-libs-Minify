@@ -1,10 +1,12 @@
 <?php
+
+use PHPUnit\Framework\TestCase;
 use Wikimedia\Minify\Cli;
 
 /**
- * @covers Wikimedia\Minify\Cli
+ * @covers \Wikimedia\Minify\Cli
  */
-class CliTest extends \PHPUnit\Framework\TestCase {
+class CliTest extends TestCase {
 	private $out;
 
 	protected function setUp(): void {
@@ -90,8 +92,8 @@ class CliTest extends \PHPUnit\Framework\TestCase {
 	public function testSourceMapMinify( $origPath, $minPath, $mapPath ) {
 		$cli = new Cli( null, $this->out, [ '/self', 'js', $origPath ] );
 		$cli->run();
-		$this->assertSame(
-			file_get_contents( $minPath ),
+		$this->assertStringEqualsFile(
+			$minPath,
 			$this->getOutput()
 		);
 	}
@@ -108,8 +110,8 @@ class CliTest extends \PHPUnit\Framework\TestCase {
 	public function testSourceMap( $origPath, $minPath, $mapPath ) {
 		$cli = new Cli( null, $this->out, [ '/self', 'jsmap-web', $origPath ] );
 		$cli->run();
-		$this->assertSame(
-			file_get_contents( $mapPath ),
+		$this->assertStringEqualsFile(
+			$mapPath,
 			$this->getOutput()
 		);
 	}

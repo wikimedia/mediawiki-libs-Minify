@@ -1,12 +1,13 @@
 <?php
 
+use PHPUnit\Framework\TestCase;
 use Wikimedia\Minify\IndexMap;
 use Wikimedia\Minify\IndexMapOffset;
 
 /**
  * @covers \Wikimedia\Minify\IndexMap
  */
-class IndexMapTest extends PHPUnit\Framework\TestCase {
+class IndexMapTest extends TestCase {
 	public function testEmptyMap() {
 		$map = new IndexMap;
 		// The index map part of the spec doesn't exactly say that "file" is

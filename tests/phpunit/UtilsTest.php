@@ -1,11 +1,12 @@
 <?php
 
+use PHPUnit\Framework\TestCase;
 use Wikimedia\Minify\Utils;
 
 /**
  * @covers \Wikimedia\Minify\Utils
  */
-class UtilsTest extends PHPUnit\Framework\TestCase {
+class UtilsTest extends TestCase {
 	public static function provideGetJsLength() {
 		return [
 			[ '', 0 ],

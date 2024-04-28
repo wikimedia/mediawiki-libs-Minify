@@ -52,7 +52,7 @@ class CSSMin {
 	 * the file content in place of the web address could be an uncompromising win for
 	 * all users.
 	 *
-	 * To avoid mistakes and protect performance we put an arbitrary limit on this.
+	 * To avoid mistakes and protect performance, we put an arbitrary limit on this.
 	 * If a file is larger than this limit, it should probably be loaded using the
 	 * default CSS behaviour (by URL, without `@embed` instruction), or embedded as
 	 * SVG directly in the HTML response if it is such a vital part of the page.
@@ -126,7 +126,7 @@ class CSSMin {
 	 *
 	 * If the image file has a suitable MIME type and size, encode it as a data URI, base64-encoded
 	 * for binary files or just percent-encoded otherwise. Return false if the image type is
-	 * unfamiliar or file exceeds the size limit.
+	 * unfamiliar or the file exceeds the size limit.
 	 *
 	 * @param string $file Image file to encode.
 	 * @param string|null $type File's MIME type or null. If null, CSSMin will

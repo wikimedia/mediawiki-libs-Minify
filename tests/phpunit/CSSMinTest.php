@@ -1,12 +1,13 @@
 <?php
+
+use PHPUnit\Framework\TestCase;
 use Wikimedia\Minify\CSSMin;
 use Wikimedia\TestingAccessWrapper;
 
 /**
- * @covers Wikimedia\Minify\CSSMin
- * @coversDefaultClass Wikimedia\Minify\CSSMin
+ * @covers \Wikimedia\Minify\CSSMin
  */
-class CSSMinTest extends PHPUnit\Framework\TestCase {
+class CSSMinTest extends TestCase {
 
 	private $files = [];
 
@@ -24,7 +25,6 @@ class CSSMinTest extends PHPUnit\Framework\TestCase {
 
 	/**
 	 * @dataProvider providesReferencedFiles
-	 * @covers ::getLocalFileReferences
 	 */
 	public function testGetLocalFileReferences( $input, $expected ) {
 		$output = CSSMin::getLocalFileReferences( $input, '/' );
@@ -62,7 +62,6 @@ class CSSMinTest extends PHPUnit\Framework\TestCase {
 
 	/**
 	 * @dataProvider provideSerializeStringValue
-	 * @covers ::serializeStringValue
 	 */
 	public function testSerializeStringValue( $input, $expected ) {
 		$output = CSSMin::serializeStringValue( $input );
@@ -100,7 +99,6 @@ class CSSMinTest extends PHPUnit\Framework\TestCase {
 
 	/**
 	 * @dataProvider provideMimeType
-	 * @covers ::getMimeType
 	 */
 	public function testGetMimeType( $fileContents, $extension, $expected ) {
 		$this->files[] = $path = tempnam( sys_get_temp_dir(), 'cssmin_' );
@@ -176,7 +174,6 @@ class CSSMinTest extends PHPUnit\Framework\TestCase {
 
 	/**
 	 * @dataProvider provideMinifyCases
-	 * @covers ::minify
 	 */
 	public function testMinify( $code, $expectedOutput ) {
 		$minified = CSSMin::minify( $code );
@@ -273,7 +270,6 @@ class CSSMinTest extends PHPUnit\Framework\TestCase {
 
 	/**
 	 * @dataProvider provideIsRemoteUrl
-	 * @covers ::isRemoteUrl
 	 */
 	public function testIsRemoteUrl( $expect, $url ) {
 		$class = TestingAccessWrapper::newFromClass( CSSMin::class );
@@ -298,7 +294,6 @@ class CSSMinTest extends PHPUnit\Framework\TestCase {
 
 	/**
 	 * @dataProvider provideIsLocalUrls
-	 * @covers ::isLocalUrl
 	 */
 	public function testIsLocalUrl( $expect, $url ) {
 		$class = TestingAccessWrapper::newFromClass( CSSMin::class );
@@ -310,8 +305,6 @@ class CSSMinTest extends PHPUnit\Framework\TestCase {
 	 *
 	 * @see testRemapRemapping() for testing of the basic functionality
 	 * @dataProvider provideRemapCases
-	 * @covers ::remap
-	 * @covers ::remapOne
 	 */
 	public function testRemap( $message, $params, $expectedOutput ) {
 		$remapped = CSSMin::remap( ...$params );
@@ -697,10 +690,9 @@ class CSSMinTest extends PHPUnit\Framework\TestCase {
 	}
 
 	/**
-	 * This tests basic functionality of CSSMin::buildUrlValue.
+	 * This tests the basic functionality of CSSMin::buildUrlValue.
 	 *
 	 * @dataProvider provideBuildUrlValueCases
-	 * @covers ::buildUrlValue
 	 */
 	public function testBuildUrlValue( $message, $input, $expectedOutput ) {
 		$this->assertEquals(
