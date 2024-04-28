@@ -9,7 +9,7 @@ use Wikimedia\TestingAccessWrapper;
  */
 class CSSMinTest extends TestCase {
 
-	private $files = [];
+	private array $files = [];
 
 	protected function tearDown(): void {
 		foreach ( $this->files as $file ) {

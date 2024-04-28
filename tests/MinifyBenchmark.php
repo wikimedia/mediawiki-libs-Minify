@@ -12,7 +12,7 @@ class MinifyBenchmark {
 		$this->benchCSSMinRemap();
 	}
 
-	private function benchJavaScriptMinifier( $label, $srcUrl ): void {
+	private function benchJavaScriptMinifier( string $label, string $srcUrl ): void {
 		$data = $this->loadTmpFile( $label, $srcUrl );
 		$iterations = 200;
 		$total = 0;
@@ -58,8 +58,9 @@ class MinifyBenchmark {
 		$this->outputStat( 'CSSMin::remap (example)', $total, $max, $iterations );
 	}
 
-	private function outputStat( string $name, $total, $max, $iterations ): void {
-		$mean = $total / $iterations; // in milliseconds
+	private function outputStat( string $name, int $total, int $max, int $iterations ): void {
+		// in milliseconds
+		$mean = $total / $iterations;
 		$ratePerSecond = 1.0 / ( $mean / 1000.0 );
 		echo sprintf(
 			"* %-30s %-10s %-12s %-14s %-16s\n",

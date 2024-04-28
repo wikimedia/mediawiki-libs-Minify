@@ -171,13 +171,20 @@ class CSSMin {
 			$encoded = rawurlencode( $contents );
 			// Unencode some things that don't need to be encoded, to make the encoding smaller
 			$encoded = strtr( $encoded, [
-				'%20' => ' ', // Unencode spaces
-				'%2F' => '/', // Unencode slashes
-				'%3A' => ':', // Unencode colons
-				'%3D' => '=', // Unencode equals signs
-				'%0A' => ' ', // Change newlines to spaces
-				'%0D' => ' ', // Change carriage returns to spaces
-				'%09' => ' ', // Change tabs to spaces
+				// Unencode spaces
+				'%20' => ' ',
+				// Unencode slashes
+				'%2F' => '/',
+				// Unencode colons
+				'%3A' => ':',
+				// Unencode equals signs
+				'%3D' => '=',
+				// Change newlines to spaces
+				'%0A' => ' ',
+				// Change carriage returns to spaces
+				'%0D' => ' ',
+				// Change tabs to spaces
+				'%09' => ' ',
 			] );
 			// Consolidate runs of multiple spaces in a row
 			$encoded = preg_replace( '/ {2,}/', ' ', $encoded );

@@ -7,6 +7,7 @@ use Wikimedia\Minify\Cli;
  * @covers \Wikimedia\Minify\Cli
  */
 class CliTest extends TestCase {
+	/** @var false|resource */
 	private $out;
 
 	protected function setUp(): void {
