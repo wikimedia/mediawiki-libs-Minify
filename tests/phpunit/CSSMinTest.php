@@ -440,9 +440,34 @@ class CSSMinTest extends TestCase {
 			$this->assertEquals( $expectedOutput, $realOutput, $message );
 			// Second, call normally, and we expect the warning, which PHPUnit turns
 			// into an exception and thus must be the last check in the test.
-			$this->expectWarning();
-			$this->expectWarningMessageMatches( '/File exceeds limit.*/' );
-			CSSMin::remap( $input, $localPath, $remotePath );
+			$this->expectPHPWarning(
+				'File exceeds limit',
+				static function () use ( $input, $localPath, $remotePath ) {
+					CSSMin::remap( $input, $localPath, $remotePath );
+				}
+			);
+		}
+	}
+
+	/**
+	 * PHPUnit 10 compatible replacement for expectWarning().
+	 *
+	 * @param string $msg
+	 * @param callable $callback
+	 * @return void
+	 * @see https://gerrit.wikimedia.org/g/mediawiki/core/+/f490b380140663f97fa95e1c05e5f1165b751e32/tests/phpunit/unit/includes/libs/Stats/MetricTest.php#386
+	 */
+	private function expectPHPWarning( string $msg, callable $callback ): void {
+		try {
+			$errorEmitted = false;
+			set_error_handler( function ( $_, $actualMsg ) use ( $msg, &$errorEmitted ) {
+				$this->assertStringStartsWith( $msg, $actualMsg );
+				$errorEmitted = true;
+			}, E_USER_WARNING );
+			$callback();
+			$this->assertTrue( $errorEmitted, "No PHP warning was emitted." );
+		} finally {
+			restore_error_handler();
 		}
 	}
 
