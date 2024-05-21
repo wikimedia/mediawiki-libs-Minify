@@ -1335,7 +1335,7 @@ class JavaScriptMinifier {
 	 *
 	 * @see MinifierState::setErrorHandler
 	 * @param string $s JavaScript code to minify
-	 * @param callable|null $onError Called with a ParserError object
+	 * @param callable|null $onError Called with a ParseError object
 	 * @return string Minified code
 	 */
 	public static function minify( $s, $onError = null ) {
