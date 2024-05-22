@@ -61,6 +61,16 @@ class CliTest extends TestCase {
 		$this->assertSame( 0, $cli->getExitCode(), 'exit code' );
 	}
 
+	public function testRunJsError() {
+		$in = fopen( 'php://memory', 'rw' );
+		fwrite( $in, "var x = 4exxxx;\n" );
+		rewind( $in );
+		$cli = new Cli( $in, $this->out, [ '/self', 'js' ] );
+		$cli->run();
+		$this->assertSame( "ParseError: Missing decimal digits after exponent at position 8\n", $this->getOutput() );
+		$this->assertSame( 1, $cli->getExitCode(), 'exit code' );
+	}
+
 	/**
 	 * When we require PHP 8+, we could run this in a separate process so that
 	 * JavaScriptMinifierTest is able to cover JavaScriptMinifier::ensureExpandedStates()

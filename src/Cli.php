@@ -104,7 +104,14 @@ final class Cli {
 
 	private function runJs( string $file = null ): void {
 		$data = $file === null ? stream_get_contents( $this->in ) : file_get_contents( $file );
-		$this->output( JavaScriptMinifier::minify( $data ) );
+		$onError = function ( ParseError $error ) {
+			$this->output( 'ParseError: ' . $error->getMessage() . ' at position ' . $error->getOffset() );
+			$this->exitCode = 1;
+		};
+		$ret = JavaScriptMinifier::minify( $data, $onError );
+		if ( !$this->exitCode ) {
+			$this->output( $ret );
+		}
 	}
 
 	private function runJsMapWeb( string $file = null ): void {
