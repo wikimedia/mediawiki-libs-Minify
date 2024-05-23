@@ -17,9 +17,7 @@ class JavaScriptMinifierTest extends TestCase {
 
 	private function setMaxLineLength( $val ) {
 		$classReflect = new ReflectionClass( JavaScriptMinifier::class );
-		$propertyReflect = $classReflect->getProperty( 'maxLineLength' );
-		$propertyReflect->setAccessible( true );
-		$propertyReflect->setValue( JavaScriptMinifier::class, $val );
+		$classReflect->setStaticPropertyValue( 'maxLineLength', $val );
 	}
 
 	public static function provideCases() {
@@ -422,6 +420,10 @@ JAVASCRIPT
 				"var  x =  fun(1,  2,3,\n 4,\n ) ;",
 				// TODO: trailing comma should be removed
 				"var x=fun(1,2,3,4,);"
+			],
+			[
+				"let lat = ((_b = json_js.wr_properties) == null ? void 0 : _b.lat) ?? 47;\n function get_austria_feature() {\nreturn feature;\n}",
+				"let lat=((_b=json_js.wr_properties)==null?void 0:_b.lat)??47;function get_austria_feature(){return feature;}"
 			],
 		];
 	}
@@ -968,6 +970,31 @@ JAVASCRIPT
 					'}',
 				]
 			],
+			[
+				"let lat = ( a || b) ?? c; \n function e() { \n return feature; \n}",
+				[
+					'let',
+					'lat',
+					'=',
+					'(',
+					'a',
+					'||',
+					'b',
+					')',
+					'??',
+					'c',
+					';',
+					'function',
+					'e',
+					'(',
+					')',
+					'{',
+					'return feature',
+					';',
+					'}'
+
+				]
+			]
 		];
 	}
 
