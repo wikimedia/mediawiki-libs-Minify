@@ -58,7 +58,7 @@ class MinifyBenchmark {
 		$this->outputStat( 'CSSMin::remap (example)', $total, $max, $iterations );
 	}
 
-	private function outputStat( string $name, int $total, int $max, int $iterations ): void {
+	private function outputStat( string $name, float $total, float $max, int $iterations ): void {
 		// in milliseconds
 		$mean = $total / $iterations;
 		$ratePerSecond = 1.0 / ( $mean / 1000.0 );
