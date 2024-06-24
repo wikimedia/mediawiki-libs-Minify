@@ -47,10 +47,9 @@ use ReflectionClass;
  * are not yet supported.
  *
  * See also:
- * - <https://262.ecma-international.org/11.0/>
- * - <https://262.ecma-international.org/8.0/>
  * - <https://262.ecma-international.org/7.0/>
- * - <https://262.ecma-international.org/6.0/>
+ * - <https://262.ecma-international.org/8.0/>
+ * - <https://262.ecma-international.org/11.0/>
  */
 class JavaScriptMinifier {
 
@@ -209,12 +208,16 @@ class JavaScriptMinifier {
 	 * @var array $opChars
 	 *
 	 * Characters which can be combined without whitespace between them.
+	 * Unlike the ECMAScript spec, we define these as individual symbols, not sequences.
 	 */
 	private static $opChars = [
-		// ECMAScript 6.0 § 11.7 Punctuators
-		// Unlike the spec, these are individual symbols, not sequences.
+		// ECMAScript 7.0 § 11.7 Punctuators
+		//
+		//    Punctuator
+		//    DivPunctuator
+		//    RightBracePunctuator
+		//
 		'{' => true,
-		'}' => true,
 		'(' => true,
 		')' => true,
 		'[' => true,
@@ -238,10 +241,13 @@ class JavaScriptMinifier {
 		'?' => true,
 		':' => true,
 		'/' => true,
-		// ECMAScript 6.0 § 11.8.4 String Literals
+		'}' => true,
+
+		// ECMAScript 7.0 § 11.8.4 String Literals
 		'"' => true,
 		"'" => true,
-		// ECMAScript 6.0 § 11.8.6 Template Literal Lexical Components
+
+		// ECMAScript 7.0 § 11.8.6 Template Literal Lexical Components
 		'`' => true,
 	];
 
@@ -251,62 +257,133 @@ class JavaScriptMinifier {
 	 * Tokens and their types.
 	 */
 	private static $tokenTypes = [
-		// ECMAScript 6.0 § 12.5 Unary Operators
-		// UnaryExpression includes PostfixExpression, which includes 'new'.
+		// ECMAScript 7.0 § 12.2 Primary Expression
+		//
+		//    ...BindingIdentifier
+		//
+		'...'        => self::TYPE_UN_OP,
+
+		// ECMAScript 7.0 § 12.3 Left-Hand-Side Expressions
+		//
+		//    MemberExpression
+		//
+		// A dot can also be part of a DecimalLiteral, but in that case we handle the entire
+		// DecimalLiteral as one token. A separate '.' token is always part of a MemberExpression.
+		'.'          => self::TYPE_DOT,
+
+		// ECMAScript 7.0 § 12.4 Update Expressions
+		//
+		//    LeftHandSideExpression [no LineTerminator here] ++
+		//    LeftHandSideExpression [no LineTerminator here] --
+		//    ++ UnaryExpression
+		//    -- UnaryExpression
+		//
+		// This is given a separate type from TYPE_UN_OP,
+		// because `++` and `--` require special handling
+		// around new lines and semicolon insertion.
+		//
+		'++'         => self::TYPE_INCR_OP,
+		'--'         => self::TYPE_INCR_OP,
+
+		// ECMAScript 7.0 § 12.5 Unary Operators
+		//
+		//    UnaryExpression
+		//        includes UpdateExpression
+		//            includes NewExpression, which defines 'new'
+		//
 		'new'        => self::TYPE_UN_OP,
 		'delete'     => self::TYPE_UN_OP,
 		'void'       => self::TYPE_UN_OP,
 		'typeof'     => self::TYPE_UN_OP,
 		'~'          => self::TYPE_UN_OP,
 		'!'          => self::TYPE_UN_OP,
-		// ECMAScript 8.0 § 14.6 AwaitExpression
+
+		// These operators can be either binary or unary depending on context,
+		// and thus require separate type from TYPE_UN_OP and TYPE_BIN_OP.
 		//
-		//    await UnaryExpression
+		//     var z = +y;    // unary (convert to number)
+		//     var z = x + y; // binary (add operation)
 		//
-		'await'      => self::TYPE_AWAIT,
-		// ECMAScript 6.0 § 12.2 Primary Expression, among others
-		'...'        => self::TYPE_UN_OP,
-		// ECMAScript 6.0 § 12.7 Additive Operators
-		'++'         => self::TYPE_INCR_OP,
-		'--'         => self::TYPE_INCR_OP,
+		// ECMAScript 7.0 § 12.5 Unary Operators
+		//
+		//     + UnaryExpression
+		//     - UnaryExpression
+		//
+		// ECMAScript 7.0 § 12.8 Additive Operators
+		//
+		//     Expression + Expression
+		//     Expression - Expression
+		//
 		'+'          => self::TYPE_ADD_OP,
 		'-'          => self::TYPE_ADD_OP,
-		// ECMAScript 6.0 § 12.6 Multiplicative Operators
+
+		// These operators can be treated the same as binary operators.
+		// They are all defined in one of these two forms, and do
+		// not require special handling for preserving whitespace or
+		// line breaks.
+		//
+		//     Expression operator Expression
+		//
+		// Defined in:
+		// - ECMAScript 7.0 § 12.6 Exponentiation Operator
+		//   ExponentiationExpression
+		// - ECMAScript 7.0 § 12.7 Multiplicative Operators
+		//   MultiplicativeOperator
+		// - ECMAScript 7.0 § 12.9 Bitwise Shift Operators
+		//   ShiftExpression
+		// - ECMAScript 7.0 § 12.10 Relational Operators
+		//   RelationalExpression
+		// - ECMAScript 7.0 § 12.11 Equality Operators
+		//   EqualityExpression
+		'**'         => self::TYPE_BIN_OP,
 		'*'          => self::TYPE_BIN_OP,
 		'/'          => self::TYPE_BIN_OP,
 		'%'          => self::TYPE_BIN_OP,
-		// ECMAScript 7.0 § 12.6 Exponentiation Operator
-		'**'         => self::TYPE_BIN_OP,
-		// ECMAScript 6.0 § 12.8 Bitwise Shift Operators
 		'<<'         => self::TYPE_BIN_OP,
 		'>>'         => self::TYPE_BIN_OP,
 		'>>>'        => self::TYPE_BIN_OP,
-		// ECMAScript 6.0 § 12.9 Relational Operators
 		'<'          => self::TYPE_BIN_OP,
 		'>'          => self::TYPE_BIN_OP,
 		'<='         => self::TYPE_BIN_OP,
 		'>='         => self::TYPE_BIN_OP,
 		'instanceof' => self::TYPE_BIN_OP,
 		'in'         => self::TYPE_BIN_OP,
-		// ECMAScript 6.0 § 12.10 Equality Operators
 		'=='         => self::TYPE_BIN_OP,
 		'!='         => self::TYPE_BIN_OP,
 		'==='        => self::TYPE_BIN_OP,
 		'!=='        => self::TYPE_BIN_OP,
-		// ECMAScript 6.0 § 12.11 Binary Bitwise Operators
+
+		// ECMAScript 7.0 § 12.12 Binary Bitwise Operators
+		//
+		//    BitwiseANDExpression
+		//    BitwiseXORExpression
+		//    BitwiseORExpression
+		//
 		'&'          => self::TYPE_BIN_OP,
 		'^'          => self::TYPE_BIN_OP,
 		'|'          => self::TYPE_BIN_OP,
-		// ECMAScript 6.0 § 12.12 Binary Logical Operators
+
+		// ECMAScript 7.0 § 12.13 Binary Logical Operators
+		//
+		//    LogicalANDExpression
+		//    LogicalORExpression
+		//
 		'&&'         => self::TYPE_BIN_OP,
 		'||'         => self::TYPE_BIN_OP,
+
 		// ECMAScript 11.0 § 12.13 Binary Logical Operators
 		'??'         => self::TYPE_BIN_OP,
-		// ECMAScript 6.0 § 12.13 Conditional Operator
+
+		// ECMAScript 7.0 § 12.14 Conditional Operator
+		//
+		//    ConditionalExpression:
+		//        LogicalORExpression ? AssignmentExpression : AssignmentExpression
+		//
 		// Also known as ternary.
 		'?'          => self::TYPE_HOOK,
 		':'          => self::TYPE_COLON,
-		// ECMAScript 6.0 § 12.14 Assignment Operators
+
+		// ECMAScript 7.0 § 12.15 Assignment Operators
 		'='          => self::TYPE_BIN_OP,
 		'*='         => self::TYPE_BIN_OP,
 		'/='         => self::TYPE_BIN_OP,
@@ -319,119 +396,138 @@ class JavaScriptMinifier {
 		'&='         => self::TYPE_BIN_OP,
 		'^='         => self::TYPE_BIN_OP,
 		'|='         => self::TYPE_BIN_OP,
-		// ECMAScript 6.0 § 12.15 Comma Operator
+		// '**='        => self::TYPE_BIN_OP, // TODO
+
+		// ECMAScript 7.0 § 12.16 Comma Operator
 		','          => self::TYPE_COMMA,
 
-		// The keywords that disallow LineTerminator before their
-		// (sometimes optional) Expression or Identifier.
+		// ECMAScript 7.0 § 11.9.1 Rules of Automatic Semicolon Insertion
+		//
+		// These keywords disallow LineTerminator before their (sometimes optional)
+		// Expression or Identifier. They are similar enough that we can treat
+		// them all the same way that we treat return, with regards to new line
+		// and semicolon insertion.
 		//
 		//    keyword ;
 		//    keyword [no LineTerminator here] Identifier ;
 		//    keyword [no LineTerminator here] Expression ;
 		//
-		// See also ECMAScript 6.0 § 11.9.1 Rules of Automatic Semicolon Insertion
+		// See also ECMAScript 7.0:
+		// - § 13.8 The continue Statement
+		// - § 13.9 The break Statement
+		// - § 13.10 The return Statement
+		// - § 13.14 The throw Statement
+		// - § 14.4 Generator Function Definitions (yield)
 		'continue'   => self::TYPE_RETURN,
 		'break'      => self::TYPE_RETURN,
 		'return'     => self::TYPE_RETURN,
 		'throw'      => self::TYPE_RETURN,
-		// yield is only a keyword inside generator functions, otherwise it's an identifier
+		// "yield" only counts as a keyword if when inside inside a generator functions,
+		// otherwise it is a regular identifier.
 		// This is handled with the negative states hack: if the state is negative, TYPE_YIELD
 		// is treated as TYPE_RETURN, if it's positive it's treated as TYPE_LITERAL
 		'yield'      => self::TYPE_YIELD,
 
-		// The keywords require a parenthesised Expression or Identifier
-		// before the next Statement.
+		// These keywords require a parenthesised Expression or Identifier before the
+		// next Statement. They are similar enough to all treat like "if".
 		//
 		//     keyword ( Expression ) Statement
 		//     keyword ( Identifier ) Statement
 		//
-		// See also ECMAScript 6.0:
+		// See also ECMAScript 7.0:
 		// - § 13.6 The if Statement
-		// - § 13.7 Iteration Statements (do, while, for)
-		// - § 12.10 The with Statement
-		// - § 12.11 The switch Statement
-		// - § 12.13 The throw Statement
+		// - § 13.7 Iteration Statements (while, for)
+		// - § 13.11 The with Statement
+		// - § 13.12 The switch Statement
+		// - § 13.15 The try Statement (catch)
 		'if'         => self::TYPE_IF,
-		'catch'      => self::TYPE_IF,
 		'while'      => self::TYPE_IF,
 		'for'        => self::TYPE_IF,
-		'switch'     => self::TYPE_IF,
 		'with'       => self::TYPE_IF,
+		'switch'     => self::TYPE_IF,
+		'catch'      => self::TYPE_IF,
 
 		// The keywords followed by a Statement, Expression, or Block.
 		//
-		//     else Statement
-		//     do Statement
-		//     case Expression
-		//     try Block
-		//     finally Block
+		//     keyword Statement
+		//     keyword Expression
+		//     keyword Block
 		//
-		// See also ECMAScript 6.0:
+		// See also ECMAScript 7.0:
 		// - § 13.6 The if Statement (else)
-		// - § 13.7 Iteration Statements (do, while, for)
+		// - § 13.7 Iteration Statements (do)
 		// - § 13.12 The switch Statement (case)
-		// - § 13.15 The try Statement
+		// - § 13.15 The try Statement (try, finally)
 		'else'       => self::TYPE_DO,
 		'do'         => self::TYPE_DO,
 		'case'       => self::TYPE_DO,
 		'try'        => self::TYPE_DO,
 		'finally'    => self::TYPE_DO,
 
-		// Keywords followed by a variable declaration
-		// This is different from the group above, because a { begins
-		// object destructuring, rather than a block
+		// ECMAScript 7.0 § 13.3 Declarations and the Variable Statement
+		//
+		//    LetOrConst
+		//    VariableStatement
+		//
+		// These keywords are followed by a variable declaration statement.
+		// This needs to be treated differently from the TYPE_DO group,
+		// because for TYPE_VAR, when we see an "{" open curly brace, it
+		// begins object destructuring (ObjectBindingPattern), not a block.
 		'var'        => self::TYPE_VAR,
 		'let'        => self::TYPE_VAR,
 		'const'      => self::TYPE_VAR,
 
-		// ECMAScript 6.0 § 14.1 Function Definitions
+		// ECMAScript 7.0 § 14.1 Function Definitions
 		'function'   => self::TYPE_FUNC,
-		// ECMAScript 6.0 § 14.2 Arrow Function Definitions
+
+		// ECMAScript 7.0 § 14.2 Arrow Function Definitions
 		'=>'         => self::TYPE_ARROW,
 
-		// Class declaration or expression:
+		// ECMAScript 7.0 § 14.5 Class Definitions
+		//
 		//     class Identifier { ClassBody }
 		//     class { ClassBody }
 		//     class Identifier extends Expression { ClassBody }
 		//     class extends Expression { ClassBody }
+		//
 		'class'      => self::TYPE_CLASS,
 
-		// ECMAScript 6.0 § 12.3 Left-Hand-Side Expressions (MemberExpression)
-		// A dot can also be part of a DecimalLiteral, but in that case we handle the entire
-		// DecimalLiteral as one token. A separate '.' token is always part of a MemberExpression.
-		'.'          => self::TYPE_DOT,
+		// ECMAScript 8.0 § 14.6 AwaitExpression
+		//
+		//    await UnaryExpression
+		//
+		'await'      => self::TYPE_AWAIT,
 
 		// Can be one of:
-		// - Block (ECMAScript 6.0 § 13.2 Block)
-		// - ObjectLiteral (ECMAScript 6.0 § 12.2 Primary Expression)
+		// - Block (ECMAScript 7.0 § 13.2 Block)
+		// - ObjectLiteral (ECMAScript 7.0 § 12.2 Primary Expression)
 		'{'          => self::TYPE_BRACE_OPEN,
 		'}'          => self::TYPE_BRACE_CLOSE,
 
 		// Can be one of:
 		// - Parenthesised Identifier or Expression after a
 		//   TYPE_IF or TYPE_FUNC keyword.
-		// - PrimaryExpression (ECMAScript 6.0 § 12.2 Primary Expression)
-		// - CallExpression (ECMAScript 6.0 § 12.3 Left-Hand-Side Expressions)
-		// - Beginning of an ArrowFunction (ECMAScript 6.0 § 14.2 Arrow Function Definitions)
+		// - PrimaryExpression (ECMAScript 7.0 § 12.2 Primary Expression)
+		// - CallExpression (ECMAScript 7.0 § 12.3 Left-Hand-Side Expressions)
+		// - Beginning of an ArrowFunction (ECMAScript 7.0 § 14.2 Arrow Function Definitions)
 		'('          => self::TYPE_PAREN_OPEN,
 		')'          => self::TYPE_PAREN_CLOSE,
 
 		// Can be one of:
-		// - ArrayLiteral (ECMAScript 6.0 § 12.2 Primary Expressions)
-		// - ComputedPropertyName (ECMAScript 6.0 § 12.2.6 Object Initializer)
+		// - ArrayLiteral (ECMAScript 7.0 § 12.2 Primary Expressions)
+		// - ComputedPropertyName (ECMAScript 7.0 § 12.2.6 Object Initializer)
 		'['          => self::TYPE_PAREN_OPEN,
 		']'          => self::TYPE_PAREN_CLOSE,
 
 		// Can be one of:
 		// - End of any statement
-		// - EmptyStatement (ECMAScript 6.0 § 13.4 Empty Statement)
+		// - EmptyStatement (ECMAScript 7.0 § 13.4 Empty Statement)
 		';'          => self::TYPE_SEMICOLON,
 
 		// ECMAScript 8.0 § 14.6 Async Function Definitions
 		// async [no LineTerminator here] function ...
 		// async [no LineTerminator here] propertyName() ...
 		'async'      => self::TYPE_ASYNC,
-
 	];
 
 	/**
