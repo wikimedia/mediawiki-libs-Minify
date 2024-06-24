@@ -970,6 +970,21 @@ JAVASCRIPT
 					'}',
 				]
 			],
+			'Exponentiation assignment operator' => [
+				'var x = 4; x **= 2;',
+				[
+					'var',
+					'x',
+					'=',
+					'4',
+					';',
+					'x',
+					'**=',
+					'2',
+					';',
+
+				]
+			],
 			[
 				"let lat = ( a || b) ?? c; \n function e() { \n return feature; \n}",
 				[
@@ -994,7 +1009,7 @@ JAVASCRIPT
 					'}'
 
 				]
-			]
+			],
 		];
 	}
 

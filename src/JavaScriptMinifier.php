@@ -396,7 +396,7 @@ class JavaScriptMinifier {
 		'&='         => self::TYPE_BIN_OP,
 		'^='         => self::TYPE_BIN_OP,
 		'|='         => self::TYPE_BIN_OP,
-		// '**='        => self::TYPE_BIN_OP, // TODO
+		'**='        => self::TYPE_BIN_OP,
 
 		// ECMAScript 7.0 § 12.16 Comma Operator
 		','          => self::TYPE_COMMA,
