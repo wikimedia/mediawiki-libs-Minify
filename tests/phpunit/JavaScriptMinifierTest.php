@@ -617,6 +617,11 @@ JAVASCRIPT
 						return 42
 					}
 					yield *21*2
+					const x = yield 63
+					const y = x ? yield 64 : yield 65
+					const z = { yield: yield 66 }
+					const a = ( yield 67 ) + 68
+					const b = z.yield + yield yield 69
 				}
 JAVASCRIPT
 				,
@@ -649,7 +654,43 @@ JAVASCRIPT
 					'21',
 					'*',
 					'2',
+					'const',
+					'x',
+					'=',
+					'yield 63',
+					'const',
+					'y',
+					'=',
+					'x',
+					'?',
+					'yield 64',
+					':',
+					'yield 65',
+					'const',
+					'z',
+					'=',
+					'{',
+					'yield',
+					':',
+					'yield 66',
 					'}',
+					'const',
+					'a',
+					'=',
+					'(',
+					'yield 67',
+					')',
+					'+',
+					'68',
+					'const',
+					'b',
+					'=',
+					'z',
+					'.',
+					'yield',
+					'+',
+					'yield yield 69',
+					'}'
 				]
 			],
 			[
