@@ -91,6 +91,9 @@ class JavaScriptMinifier {
 	private const TEMPLATE_STRING_HEAD          = 26;
 	private const TEMPLATE_STRING_TAIL          = 27;
 	private const PAREN_EXPRESSION_OP_NO_NL     = 28;
+	private const EXPRESSION_TERNARY_NO_NL      = 29;
+	private const PAREN_EXPRESSION_NO_NL        = 30;
+	private const PROPERTY_EXPRESSION_NO_NL     = 31;
 
 	/* Token types */
 
@@ -136,7 +139,7 @@ class JavaScriptMinifier {
 	/** @var int => */
 	private const TYPE_ARROW = 114;
 
-	/** @var int keywords: break, continue, return, throw */
+	/** @var int keywords: break, continue, return, throw (and yield, if we're in a generator) */
 	private const TYPE_RETURN = 115;
 
 	/** @var int keywords: catch, for, with, switch, while, if */
@@ -698,11 +701,16 @@ class JavaScriptMinifier {
 			self::TYPE_ASYNC => [
 				self::ACTION_GOTO => self::EXPRESSION_OP,
 			],
+			// 'return' can't appear here, but 'yield' can
+			self::TYPE_RETURN => [
+				self::ACTION_GOTO => self::EXPRESSION_NO_NL,
+			],
 		],
-		// An expression immediately after return/throw/break/continue, where a newline
+		// An expression immediately after return/throw/break/continue/yield, where a newline
 		// is not allowed. This state is identical to EXPRESSION, except that semicolon
-		// insertion can happen here, and we never stay here: in cases where EXPRESSION would
-		// do nothing, we go to EXPRESSION.
+		// insertion can happen here, and we (almost) never stay here: in cases where EXPRESSION
+		// would do nothing, we go to EXPRESSION. We only stay here if there's a double yield,
+		// because 'yield yield foo' is a valid expression.
 		self::EXPRESSION_NO_NL => [
 			self::TYPE_UN_OP => [
 				self::ACTION_GOTO => self::EXPRESSION,
@@ -748,6 +756,11 @@ class JavaScriptMinifier {
 			],
 			self::TYPE_AWAIT => [
 				self::ACTION_GOTO => self::EXPRESSION,
+			],
+			// 'return' can't appear here, because 'return return' isn't allowed
+			// But 'yield' can appear here, because 'yield yield' is allowed
+			self::TYPE_RETURN => [
+				self::ACTION_GOTO => self::EXPRESSION_NO_NL,
 			],
 		],
 		// Place in an expression after an operand, where we expect an operator
@@ -934,6 +947,51 @@ class JavaScriptMinifier {
 			self::TYPE_LITERAL => [
 				self::ACTION_GOTO => self::EXPRESSION_TERNARY_OP,
 			],
+			// 'return' can't appear here, but 'yield' can
+			self::TYPE_RETURN => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY_NO_NL,
+			],
+		],
+		// Like EXPRESSION_TERNARY, except that semicolon insertion can happen
+		// See also EXPRESSION_NO_NL
+		self::EXPRESSION_TERNARY_NO_NL => [
+			self::TYPE_BRACE_OPEN => [
+				self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
+				self::ACTION_GOTO => self::PROPERTY_ASSIGNMENT,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_FUNC => [
+				self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
+				self::ACTION_GOTO => self::FUNC,
+			],
+			self::TYPE_CLASS => [
+				self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
+				self::ACTION_GOTO => self::CLASS_DEF,
+			],
+			self::TYPE_LITERAL => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY_OP,
+			],
+			// 'yield' can appear here, because 'yield yield' is allowed
+			self::TYPE_RETURN => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY_NO_NL,
+			],
+			self::TYPE_UN_OP => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY,
+			],
+			self::TYPE_INCR_OP => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY,
+			],
+			// BIN_OP seems impossible at the start of an expression, but it can happen in
+			// yield *foo
+			self::TYPE_BIN_OP => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY,
+			],
+			self::TYPE_ADD_OP => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY,
+			],
 		],
 		// Like EXPRESSION_OP, but for ternaries, see EXPRESSION_TERNARY
 		self::EXPRESSION_TERNARY_OP => [
@@ -1056,6 +1114,60 @@ class JavaScriptMinifier {
 			],
 			self::TYPE_ASYNC => [
 				self::ACTION_GOTO => self::PAREN_EXPRESSION_OP_NO_NL,
+			],
+			// 'return' can't appear here, but 'yield' can
+			self::TYPE_RETURN => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION_NO_NL,
+			],
+		],
+		// Like PAREN_EXPRESSION, except that semicolon insertion can happen
+		// See also EXPRESSION_NO_NL
+		self::PAREN_EXPRESSION_NO_NL => [
+			self::TYPE_BRACE_OPEN => [
+				self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
+				self::ACTION_GOTO => self::PROPERTY_ASSIGNMENT,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_PAREN_CLOSE => [
+				self::ACTION_POP => true,
+			],
+			self::TYPE_FUNC => [
+				self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
+				self::ACTION_GOTO => self::FUNC,
+			],
+			self::TYPE_CLASS => [
+				self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
+				self::ACTION_GOTO => self::CLASS_DEF,
+			],
+			self::TYPE_LITERAL => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION_OP,
+			],
+			self::TYPE_ASYNC => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION_OP_NO_NL,
+			],
+			// 'yield' can appear here, because 'yield yield' is allowed
+			self::TYPE_RETURN => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION_NO_NL,
+			],
+			self::TYPE_UN_OP => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_INCR_OP => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			// BIN_OP seems impossible at the start of an expression, but it can happen in
+			// yield *foo
+			self::TYPE_BIN_OP => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_ADD_OP => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_AWAIT => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
 			],
 		],
 		// Like EXPRESSION_OP, but in parentheses, see PAREN_EXPRESSION
@@ -1218,6 +1330,54 @@ class JavaScriptMinifier {
 			self::TYPE_LITERAL => [
 				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_OP,
 			],
+			// 'return' can't appear here, but 'yield' can
+			self::TYPE_RETURN => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_NO_NL,
+			],
+		],
+		// Like PROPERTY_EXPRESSION, except that semicolon insertion can happen
+		// See also EXPRESSION_NO_NL
+		self::PROPERTY_EXPRESSION_NO_NL => [
+			self::TYPE_BRACE_OPEN => [
+				self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
+				self::ACTION_GOTO => self::PROPERTY_ASSIGNMENT,
+			],
+			self::TYPE_BRACE_CLOSE => [
+				self::ACTION_POP => true,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_FUNC => [
+				self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
+				self::ACTION_GOTO => self::FUNC,
+			],
+			self::TYPE_CLASS => [
+				self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
+				self::ACTION_GOTO => self::CLASS_DEF,
+			],
+			self::TYPE_LITERAL => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_OP,
+			],
+			// 'yield' can appear here, because 'yield yield' is allowed
+			self::TYPE_RETURN => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_NO_NL,
+			],
+			self::TYPE_UN_OP => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
+			],
+			self::TYPE_INCR_OP => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
+			],
+			// BIN_OP seems impossible at the start of an expression, but it can happen in
+			// yield *foo
+			self::TYPE_BIN_OP => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
+			],
+			self::TYPE_ADD_OP => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
+			],
 		],
 		// Like EXPRESSION_OP, but in a property expression, see PROPERTY_EXPRESSION
 		self::PROPERTY_EXPRESSION_OP => [
@@ -1378,6 +1538,60 @@ class JavaScriptMinifier {
 	 */
 	private static $semicolon = [
 		self::EXPRESSION_NO_NL => [
+			self::TYPE_UN_OP => true,
+			// BIN_OP seems impossible at the start of an expression, but it can happen in
+			// yield *foo
+			self::TYPE_BIN_OP => true,
+			self::TYPE_INCR_OP => true,
+			self::TYPE_ADD_OP => true,
+			self::TYPE_BRACE_OPEN => true,
+			self::TYPE_PAREN_OPEN => true,
+			self::TYPE_RETURN => true,
+			self::TYPE_IF => true,
+			self::TYPE_DO => true,
+			self::TYPE_VAR => true,
+			self::TYPE_FUNC => true,
+			self::TYPE_CLASS => true,
+			self::TYPE_LITERAL => true,
+			self::TYPE_ASYNC => true,
+		],
+		self::EXPRESSION_TERNARY_NO_NL => [
+			self::TYPE_UN_OP => true,
+			// BIN_OP seems impossible at the start of an expression, but it can happen in
+			// yield *foo
+			self::TYPE_BIN_OP => true,
+			self::TYPE_INCR_OP => true,
+			self::TYPE_ADD_OP => true,
+			self::TYPE_BRACE_OPEN => true,
+			self::TYPE_PAREN_OPEN => true,
+			self::TYPE_RETURN => true,
+			self::TYPE_IF => true,
+			self::TYPE_DO => true,
+			self::TYPE_VAR => true,
+			self::TYPE_FUNC => true,
+			self::TYPE_CLASS => true,
+			self::TYPE_LITERAL => true,
+			self::TYPE_ASYNC => true,
+		],
+		self::PAREN_EXPRESSION_NO_NL => [
+			self::TYPE_UN_OP => true,
+			// BIN_OP seems impossible at the start of an expression, but it can happen in
+			// yield *foo
+			self::TYPE_BIN_OP => true,
+			self::TYPE_INCR_OP => true,
+			self::TYPE_ADD_OP => true,
+			self::TYPE_BRACE_OPEN => true,
+			self::TYPE_PAREN_OPEN => true,
+			self::TYPE_RETURN => true,
+			self::TYPE_IF => true,
+			self::TYPE_DO => true,
+			self::TYPE_VAR => true,
+			self::TYPE_FUNC => true,
+			self::TYPE_CLASS => true,
+			self::TYPE_LITERAL => true,
+			self::TYPE_ASYNC => true,
+		],
+		self::PROPERTY_EXPRESSION_NO_NL => [
 			self::TYPE_UN_OP => true,
 			// BIN_OP seems impossible at the start of an expression, but it can happen in
 			// yield *foo
