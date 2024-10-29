@@ -2040,21 +2040,22 @@ class JavaScriptMinifier {
 			}
 
 			$pad = '';
+
 			if ( $newlineFound && isset( self::$semicolon[$state][$type] ) ) {
 				// This token triggers the semicolon insertion mechanism of javascript. While we
 				// could add the ; token here ourselves, keeping the newline has a few advantages.
 				$pad = "\n";
 				$state = $state < 0 ? -self::STATEMENT : self::STATEMENT;
 				$lineLength = 0;
-			} elseif ( $lineLength + $end - $pos > self::$maxLineLength &&
+			// This check adds a new line if we have exceeded the max length and only does this if
+			// a newline was found in this this position, if it wasn't, it uses the next available
+			// line break
+			} elseif ( $newlineFound &&
+				$lineLength + $end - $pos > self::$maxLineLength &&
 				!isset( self::$semicolon[$state][$type] ) &&
 				$type !== self::TYPE_INCR_OP &&
 				$type !== self::TYPE_ARROW
 			) {
-				// This line would get too long if we added $token, so add a newline first.
-				// Only do this if it won't trigger semicolon insertion and if it won't
-				// put a postfix increment operator or an arrow on its own line,
-				// which is illegal in js.
 				$pad = "\n";
 				$lineLength = 0;
 			// Check, whether we have to separate the token from the last one with whitespace

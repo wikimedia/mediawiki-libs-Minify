@@ -454,44 +454,40 @@ JAVASCRIPT
 			[
 				// Regression tests for T34548.
 				// Must not break between 'E' and '+'.
-				'var name = 1.23456789E55;',
+				"function abc() { \n var name = 1.23456789E55; \n return name;}",
+				8,
 				[
-					'var',
-					'name',
-					'=',
-					'1.23456789E55',
-					';',
+					'function abc(){',
+					'var name=1.23456789E55;',
+					'return name;}'
 				],
 			],
 			[
-				'var name = 1.23456789E+5;',
+				"function abc() { \n var name=1.23456789E+5; \n return name;}",
+				9,
 				[
-					'var',
-					'name',
-					'=',
-					'1.23456789E+5',
-					';',
+					'function abc(){',
+					'var name=1.23456789E+5;',
+					'return name;}'
 				],
 			],
 			[
-				'var name = 1.23456789E-5;',
+				"function abc() { \n var name = 1.23456789E-5; \n return name;}",
+				12,
 				[
-					'var',
-					'name',
-					'=',
-					'1.23456789E-5',
-					';',
+					'function abc(){',
+					'var name=1.23456789E-5;',
+					'return name;}'
 				],
 			],
 			[
 				// Must not break before '++'
-				'if(x++);',
+				"if( x++ ){ \n console.log('hello'); \n }",
+				10,
 				[
-					'if',
-					'(',
-					'x++',
-					')',
-					';',
+					'if(x++){',
+					'console.log(\'hello\');',
+					'}',
 				],
 			],
 			[
@@ -510,44 +506,17 @@ JAVASCRIPT
 			} );
 JAVASCRIPT
 				,
+				5,
 				[
-					'call',
-					'(',
-					'function',
-					'(',
-					')',
-					'{',
-					'try',
-					'{',
-					'}',
-					'catch',
-					'(',
-					'e',
-					')',
-					'{',
-					'obj',
-					'=',
-					'{',
-					'key',
-					':',
-					'1',
-					'?',
-					'0',
-					':',
-					'{',
-					'}',
-					'}',
-					';',
-					'}',
+					'call(function(){',
+					'try{}catch(e){',
+					'obj={',
+					'key:1?0:{}',
+					'};}',
 					// The return Statement:
 					//     return [no LineTerminator here] Expression
-					'return name',
-					'===',
-					"'input'",
-					';',
-					'}',
-					')',
-					';',
+					'return name===\'input\';',
+					'});',
 				]
 			],
 			[
@@ -563,47 +532,22 @@ call( {
 } );
 JAVASCRIPT
 				,
+				5,
 				[
-					'call',
-					'(',
-					'{',
-					'key',
-					':',
-					'1',
-					'?',
-					'0',
-					':',
-					'function',
-					'(',
-					')',
-					'{',
-					'return this',
-					';',
-					'}',
-					'}',
-					')',
-					';',
+					'call({',
+					'key:1?0:function(){',
+					'return this;',
+					'}});'
 				]
 			],
 			[
 				// No newline after throw, but a newline after "throw new" is OK
-				'throw new Error( "yikes" ); function f () { return ++x; }',
+				"throw new Error( 'yikes' ); \n function f () { \n return ++x; }",
+				10,
 				[
-					'throw new',
-					'Error',
-					'(',
-					'"yikes"',
-					')',
-					';',
-					'function',
-					'f',
-					'(',
-					')',
-					'{',
-					'return++',
-					'x',
-					';',
-					'}',
+					'throw new Error(\'yikes\');',
+					'function f(){',
+					'return++x;}'
 				]
 			],
 			[
@@ -625,443 +569,210 @@ JAVASCRIPT
 				}
 JAVASCRIPT
 				,
+				10,
 				[
-					'function',
-					'*',
-					'f',
-					'(',
-					'x',
-					')',
-					'{',
+					'function*f(x){',
 					'yield 42',
-					'function',
-					'g',
-					'(',
-					')',
-					'{',
-					'let',
-					'yield',
-					'=',
-					'42',
-					';',
-					'yield',
-					'(',
-					'42',
-					')',
-					'return 42',
-					'}',
-					'yield*',
-					'21',
-					'*',
-					'2',
-					'const',
-					'x',
-					'=',
-					'yield 63',
-					'const',
-					'y',
-					'=',
-					'x',
-					'?',
-					'yield 64',
-					':',
-					'yield 65',
-					'const',
-					'z',
-					'=',
-					'{',
-					'yield',
-					':',
-					'yield 66',
-					'}',
-					'const',
-					'a',
-					'=',
-					'(',
-					'yield 67',
-					')',
-					'+',
-					'68',
-					'const',
-					'b',
-					'=',
-					'z',
-					'.',
-					'yield',
-					'+',
-					'yield yield 69',
+					'function g(){',
+					'let yield=42;',
+					'yield(42)',
+					'return 42}',
+					'yield*21*2',
+					'const x=yield 63',
+					'const y=x?yield 64:yield 65',
+					'const z={yield:yield 66}',
+					'const a=(yield 67)+68',
+					'const b=z.yield+yield yield 69',
 					'}'
 				]
 			],
 			[
 				// Template string literal with a function body inside
 				'let a = `foo + ${ ( function ( x ) { return x * 2; }( 21 ) ) } + bar`;',
+				4,
 				[
-					'let',
-					'a',
-					'=',
-					'`foo + ${',
-					'(',
-					'function',
-					'(',
-					'x',
-					')',
-					'{',
-					'return x',
-					'*',
-					'2',
-					';',
-					'}',
-					'(',
-					'21',
-					')',
-					')',
-					'} + bar`',
-					';'
+					'let a=`foo + ${(function(x){return x*2;}(21))} + bar`;'
 				]
 			],
 			[
 				// Functions in classes
-				"class Foo { static *f() { yield(42); }, static g() { let yield = 42; yield(42); } }",
+				"class Foo { \n static *f() { \n yield(42); \n }, \n static g() { \n let yield = 42; \n yield(42); \n } }",
+				13,
 				[
-					'class',
-					'Foo',
-					'{',
-					'static',
-					'*',
-					'f',
-					'(',
-					')',
-					'{',
-					'yield(',
-					'42',
-					')',
-					';',
-					'}',
-					',',
-					'static',
-					'g',
-					'(',
-					')',
-					'{',
-					'let',
-					'yield',
-					'=',
-					'42',
-					';',
-					'yield',
-					'(',
-					'42',
-					')',
-					';',
-					'}',
-					'}'
+					'class Foo{',
+					'static*f(){',
+					'yield(42);},',
+					'static g(){',
+					'let yield=42;',
+					'yield(42);}}'
 				]
 			],
 			[
 				"class Foo { get bar() { return 42 } set baz( val ) { throw new Error( 'yikes' ) } }",
+				6,
 				[
-					'class',
-					'Foo',
-					'{',
-					'get',
-					'bar',
-					'(',
-					')',
-					'{',
-					'return 42',
-					'}',
-					'set',
-					'baz',
-					'(',
-					'val',
-					')',
-					'{',
-					'throw new',
-					'Error',
-					'(',
-					"'yikes'",
-					')',
-					'}',
-					'}',
+					'class Foo{get bar(){return 42}set baz(val){throw new Error(\'yikes\')}}'
 				]
 			],
 			[
 				// Don't break before an arrow
 				"let a = (x, y) => x + y;",
+				4,
 				[
-					'let',
-					'a',
-					'=',
-					'(',
-					'x',
-					',',
-					'y',
-					')=>',
-					'x',
-					'+',
-					'y',
-					';'
+					'let a=(x,y)=>x+y;'
 				]
 			],
 			[
 				"let a = (x, y) => { return x + y; };",
+				5,
 				[
-					'let',
-					'a',
-					'=',
-					'(',
-					'x',
-					',',
-					'y',
-					')=>',
-					'{',
-					'return x',
-					'+',
-					'y',
-					';',
-					'}',
-					';'
+					'let a=(x,y)=>{return x+y;};'
 				]
 			],
 			[
-				"export default class Foo { *f() { yield 42; } }",
+				"export default class Foo { *f() { \n yield 42; \n } }",
+				8,
 				[
-					'export',
-					'default',
-					'class',
-					'Foo',
-					'{',
-					'*',
-					'f',
-					'(',
-					')',
-					'{',
-					'yield 42',
-					';',
-					'}',
-					'}',
-				]
-					],
-			[
-				"export { Foo, Bar as Baz, Quux };",
-				[
-					'export',
-					'{',
-					'Foo',
-					',',
-					'Bar',
-					'as',
-					'Baz',
-					',',
-					'Quux',
-					'}',
-					';'
+					'export default class Foo{*f(){',
+					'yield 42;',
+					'}}'
 				]
 			],
 			[
-				"import * as Foo from 'thingy';",
+				"export { Foo, Bar as Baz, Quux }; \n import * as Foo from 'thingy';",
+				6,
 				[
-					'import',
-					'*',
-					'as',
-					'Foo',
-					'from',
-					"'thingy'",
-					';'
+					'export{Foo,Bar as Baz,Quux};',
+					'import*as Foo from\'thingy\';'
+				]
+			],
+			[
+				"import * as Foo from 'thingy'; \n export { Foo, Bar as Baz, Quux };",
+				7,
+				[
+					'import*as Foo from\'thingy\';',
+					'export{Foo,Bar as Baz,Quux};'
 				]
 			],
 			[
 				"import Foo, * as Bar from 'thingy';",
+				20,
 				[
-					'import',
-					'Foo',
-					',',
-					'*',
-					'as',
-					'Bar',
-					'from',
-					"'thingy'",
-					';'
+					'import Foo,*as Bar from\'thingy\';'
 				]
 			],
 			// Cover failure case of x.class polluting the state machine (T277161)
 			[
 				"let blah = (x && y.class); let obj = {}\n function g() { return 42; }",
+				3,
 				[
-					'let',
-					'blah',
-					'=',
-					'(',
-					'x',
-					'&&',
-					'y',
-					'.',
-					'class',
-					')',
-					';',
-					'let',
-					'obj',
-					'=',
-					'{',
-					'}',
-					'function',
-					'g',
-					'(',
-					')',
-					'{',
-					'return 42',
-					';',
-					'}',
+					'let blah=(x&&y.class);let obj={}',
+					'function g(){return 42;}'
 				]
 			],
 			// Cover failure case where ... is not recognized as a single token (T287526)
 			[
 				'let blah = foo( ...bar );',
+				5,
 				[
-					'let',
-					'blah',
-					'=',
-					'foo',
-					'(',
-					'...',
-					'bar',
-					')',
-					';'
+					'let blah=foo(...bar);'
 				]
 			],
 			'async function declaration' => [
-				"async function test( x ) { await x.login(); }",
+				"async function test( x ) { \n await x.login(); \n }",
+				10,
 				[
-					'async function',
-					'test',
-					'(',
-					'x',
-					')',
-					'{',
-					'await',
-					'x',
-					'.',
-					'login',
-					'(',
-					')',
-					';',
-					'}',
+					'async function test(x){',
+					'await x.login();',
+					'}'
 				]
 			],
 			'async function expression' => [
-				"var test = async function( x ) { await x.login(); }",
+				"var test = async function( x ) { \n  await x.login(); }",
+				10,
 				[
-					'var',
-					'test',
-					'=',
-					'async function',
-					'(',
-					'x',
-					')',
-					'{',
-					'await',
-					'x',
-					'.',
-					'login',
-					'(',
-					')',
-					';',
-					'}',
+					'var test=async function(x){',
+					'await x.login();}',
 				]
 			],
 			'async function paren expression' => [
-				"var test = [ async function( x ) {} ]",
+				"var test = [ \n async function( x ) { \n } ];",
+				10,
 				[
-					'var',
-					'test',
-					'=',
-					'[',
-					'async function',
-					'(',
-					'x',
-					')',
-					'{',
-					'}',
-					']'
+					'var test=[',
+					'async function(x){',
+					'}];'
 				]
 			],
 			'async as literal' => [
-				"var x = { async: 1 }, async = x.async; function y() { return async; }",
+				"var x = { async: 1 }, async = x.async; \n function y() { \n return async; }",
+				3,
 				[
-					'var',
-					'x',
-					'=',
-					'{',
-					'async',
-					':',
-					'1',
-					'}',
-					',',
-					'async',
-					'=',
-					'x',
-					'.',
-					'async',
-					';',
-					'function y',
-					'(',
-					'){return async',
-					';',
-					'}',
+					'var x={async:1},async=x.async;',
+					'function y(){',
+					'return async;}'
 				]
 			],
 			'Exponentiation assignment operator' => [
-				'var x = 4; x **= 2;',
+				"var x = 4; \n x **= 2;",
+				10,
 				[
-					'var',
-					'x',
-					'=',
-					'4',
-					';',
-					'x',
-					'**=',
-					'2',
-					';',
+					'var x=4;x**=2;'
 
 				]
 			],
 			[
 				"let lat = ( a || b) ?? c; \n function e() { \n return feature; \n}",
+				4,
 				[
-					'let',
-					'lat',
-					'=',
-					'(',
-					'a',
-					'||',
-					'b',
-					')',
-					'??',
-					'c',
-					';',
-					'function',
-					'e',
-					'(',
-					')',
-					'{',
-					'return feature',
-					';',
+					'let lat=(a||b)??c;',
+					'function e(){',
+					'return feature;',
 					'}'
 
 				]
 			],
+			[
+				"var foo = x(a + b) / y(); \n foo++; \n var bar = y( \n z(a), \n z(b), \n z(c), \n z(d), \n z(e) \n );",
+				20,
+				[
+					'var foo=x(a+b)/y();',
+					'foo++;var bar=y(z(a),',
+					'z(b),z(c),z(d),z(e));'
+
+				]
+			],
+			"Async methods" => [
+				<<< JAVASCRIPT
+				class ApiService {
+					async fetchData() {
+					const response = await fetch('https://api.example.com/data');
+					return response.json();
+					}
+				}
+			JAVASCRIPT,
+				10,
+				[
+					'class ApiService{',
+					'async fetchData(){',
+					'const response=await fetch(\'https://api.example.com/data\');',
+					'return response.json();',
+					'}}'
+				]
+			]
 		];
 	}
 
 	/**
 	 * @dataProvider provideLineBreaker
 	 */
-	public function testLineBreaker( $code, array $expectedLines ) {
-		$this->setMaxLineLength( 1 );
+	public function testLineBreaker( $code, $lineLength, array $expectedLines ) {
+		$this->setMaxLineLength( $lineLength );
 		$actual = JavaScriptMinifier::minify( $code );
+		// var_dump($actual);
 		$this->assertEquals(
-			array_merge( [ '' ], $expectedLines ),
+			// array_merge( [ '' ], $expectedLines ),
+			$expectedLines,
 			explode( "\n", $actual )
 		);
 	}
