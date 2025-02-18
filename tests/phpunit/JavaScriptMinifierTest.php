@@ -168,6 +168,16 @@ class JavaScriptMinifierTest extends TestCase {
 				"alert((10+10)/'/'.charCodeAt(0)+'//');"
 			],
 			[ "if(1)/a /g.exec('Pa ss');", "if(1)/a /g.exec('Pa ss');" ],
+			[
+				// Async as literal followed by division
+				"var x = { \n aa: lit / 2 * 3 / lit, \n bb: async / 2 * 3 / lit \n };",
+				"var x={aa:lit/2*3/lit,bb:async/2*3/lit};"
+			],
+			[
+				// Yield followed by regex
+				"function* myGen() { yield / 2 * 3 /; }",
+				"function*myGen(){yield/ 2 * 3 /;}"
+			],
 
 			// Unicode letter characters should pass through ok in identifiers (T33187)
 			[ "var KaŝSkatolVal = {}", 'var KaŝSkatolVal={}' ],

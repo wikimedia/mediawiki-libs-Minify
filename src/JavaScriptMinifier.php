@@ -94,6 +94,7 @@ class JavaScriptMinifier {
 	private const EXPRESSION_TERNARY_NO_NL      = 29;
 	private const PAREN_EXPRESSION_NO_NL        = 30;
 	private const PROPERTY_EXPRESSION_NO_NL     = 31;
+	private const PROPERTY_EXPRESSION_ASYNC     = 32;
 
 	/* Token types */
 
@@ -644,11 +645,13 @@ class JavaScriptMinifier {
 		// Property assignment - This is an object literal declaration.
 		// For example: `{ key: value, key2, [computedKey3]: value3, method4() { ... } }`
 		self::PROPERTY_ASSIGNMENT => [
-			// Note that keywords like if, class, var, delete, instanceof etc. can be used as keys,
-			// and should be treated as literals here, as they are in EXPRESSION_DOT. In this state,
-			// that is implicitly true because TYPE_LITERAL has no action, so it stays in this state.
-			// If we later add a state transition for TYPE_LITERAL, that same transition should
-			// also be applied to TYPE_RETURN, TYPE_IF, TYPE_DO, TYPE_VAR, TYPE_FUNC and TYPE_CLASS.
+			// Note that keywords like "if", "class", "var", "delete", "async", etc, are
+			// valid key names, and should be treated as literals here. Like in EXPRESSION_DOT.
+			// For this state, this requires no special handling because TYPE_LITERAL
+			// has no action here, so we remain in this state.
+			//
+			// If this state ever gets a transition for TYPE_LITERAL, then that same transition
+			// must apply to TYPE_IF, TYPE_CLASS, TYPE_VAR, TYPE_ASYNC, etc as well.
 			self::TYPE_COLON => [
 				self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
 			],
@@ -1309,8 +1312,9 @@ class JavaScriptMinifier {
 				self::ACTION_POP => true,
 			],
 		],
-		// Expression as the value of a key in an object literal. Like EXPRESSION, except that
-		// a comma (in PROPERTY_EXPRESSION_OP) goes to PROPERTY_ASSIGNMENT instead
+		// Expression as the value of a key in an object literal.
+		// This means we're at "{ foo:".
+		// Like EXPRESSION, except that a comma (in PROPERTY_EXPRESSION_OP) goes to PROPERTY_ASSIGNMENT instead
 		self::PROPERTY_EXPRESSION => [
 			self::TYPE_BRACE_OPEN => [
 				self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
@@ -1333,6 +1337,9 @@ class JavaScriptMinifier {
 			],
 			self::TYPE_LITERAL => [
 				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_OP,
+			],
+			self::TYPE_ASYNC => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_ASYNC,
 			],
 			// 'return' can't appear here, but 'yield' can
 			self::TYPE_RETURN => [
@@ -1384,6 +1391,7 @@ class JavaScriptMinifier {
 			],
 		],
 		// Like EXPRESSION_OP, but in a property expression, see PROPERTY_EXPRESSION
+		// This means we're at "{ foo: bar".
 		self::PROPERTY_EXPRESSION_OP => [
 			self::TYPE_BIN_OP => [
 				self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
@@ -1413,6 +1421,60 @@ class JavaScriptMinifier {
 			self::TYPE_PAREN_OPEN => [
 				self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
 				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+		],
+		// Like PROPERTY_EXPRESSION_OP, but with an added TYPE_FUNC handler.
+		// This means we're at "{ foo: async".
+		//
+		// This state exists to support "{ foo: async function() {",
+		// which can't re-use PROPERTY_EXPRESSION_OP, because handling TYPE_FUNC there
+		// would treat invalid "{ foo: bar function () {" as valid.
+		//
+		// For other cases we treat "async" like a literal key or key-less value.
+		//
+		// ```
+		// var noAsyncHere = {
+		//   async,
+		//   async: 1,
+		//   async() { return 2; },
+		//   foo: async
+		//   foo: async + 2,
+		//   foo: async(),
+		// }
+		// ```
+		self::PROPERTY_EXPRESSION_ASYNC => [
+			self::TYPE_BIN_OP => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
+			],
+			self::TYPE_ADD_OP => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
+			],
+			self::TYPE_DOT => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_DOT,
+			],
+			self::TYPE_HOOK => [
+				self::ACTION_PUSH => self::PROPERTY_EXPRESSION,
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY,
+			],
+			self::TYPE_COMMA => [
+				self::ACTION_GOTO => self::PROPERTY_ASSIGNMENT,
+			],
+			self::TYPE_ARROW => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_ARROWFUNC,
+			],
+			self::TYPE_BRACE_OPEN => [
+				self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
+			],
+			self::TYPE_BRACE_CLOSE => [
+				self::ACTION_POP => true,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
+			self::TYPE_FUNC => [
+				self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
+				self::ACTION_GOTO => self::FUNC,
 			],
 		],
 		// Like EXPRESSION_DOT, but in a property expression, see PROPERTY_EXPRESSION
@@ -1654,10 +1716,11 @@ class JavaScriptMinifier {
 	 * This array is augmented by self::ensureExpandedStates().
 	 */
 	private static $divStates = [
-		self::EXPRESSION_OP          => true,
-		self::EXPRESSION_TERNARY_OP  => true,
-		self::PAREN_EXPRESSION_OP    => true,
-		self::PROPERTY_EXPRESSION_OP => true
+		self::EXPRESSION_OP             => true,
+		self::EXPRESSION_TERNARY_OP     => true,
+		self::PAREN_EXPRESSION_OP       => true,
+		self::PROPERTY_EXPRESSION_OP    => true,
+		self::PROPERTY_EXPRESSION_ASYNC => true
 	];
 
 	/**
