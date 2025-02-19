@@ -190,6 +190,7 @@ class JavaScriptMinifierTest extends TestCase {
 			// Invalid syntax: Simple dot notation on number literals is ambigious
 			[ "3.foo;", "3.foo;" ],
 			// Invalid syntax: Too many decimal points
+			[ "5..0;", "5..0;", 'Too many decimal points' ],
 			[ "5...toString();", "5...toString();", 'Too many decimal points' ],
 
 			// Cover states for dotless number literals with prop after space (T303827)

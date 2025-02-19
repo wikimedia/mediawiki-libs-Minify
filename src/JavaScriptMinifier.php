@@ -1985,10 +1985,22 @@ class JavaScriptMinifier {
 				$end += strspn( $s, '0123456789', $end );
 				$decimal = strspn( $s, '.', $end );
 				if ( $decimal ) {
-					if ( $decimal > 2 && !$error ) {
+					// Valid: "5." (number literal, optional fraction)
+					// Valid: "5.42" (number literal)
+					// Valid: "5..toString" (number literal "5.", followed by member expression).
+					// Invalid: "5..42"
+					// Invalid: "5...42"
+					// Invalid: "5...toString"
+					$fraction = strspn( $s, '0123456789', $end + $decimal );
+					if ( $decimal === 2 && !$fraction ) {
+						// Rewind one character, so that the member expression dot
+						// will be parsed as the next token (TYPE_DOT).
+						$decimal = 1;
+					}
+					if ( $decimal > 1 && !$error ) {
 						$error = new ParseError( 'Too many decimal points', $end );
 					}
-					$end += strspn( $s, '0123456789', $end + 1 ) + $decimal;
+					$end += $decimal + $fraction;
 				} else {
 					$dotlessNum = true;
 				}
