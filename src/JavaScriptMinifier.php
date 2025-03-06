@@ -610,6 +610,10 @@ class JavaScriptMinifier {
 				self::ACTION_PUSH => self::STATEMENT,
 				self::ACTION_GOTO => self::PAREN_EXPRESSION,
 			],
+			self::TYPE_BRACE_OPEN => [
+				self::ACTION_PUSH => self::STATEMENT,
+				self::ACTION_GOTO => self::STATEMENT,
+			]
 		],
 		// The state after the function keyword. Waits for {, then goes to STATEMENT.
 		// The function body's closing } will pop the stack, so the state to return to

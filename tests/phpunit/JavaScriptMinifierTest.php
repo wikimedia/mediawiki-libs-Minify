@@ -760,6 +760,17 @@ JAVASCRIPT
 					'return response.json();',
 					'}}'
 				]
+					],
+			"Optional catch binding" => [
+				"try { \n throw new Error('Something went wrong'); \n } catch { \n console.log('An error occurred'); \n}",
+				4,
+				[
+					'try{',
+					'throw new Error(\'Something went wrong\');',
+					'}catch{',
+					'console.log(\'An error occurred\');',
+					'}'
+				]
 			]
 		];
 	}
