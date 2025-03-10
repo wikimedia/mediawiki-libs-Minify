@@ -1774,9 +1774,10 @@ class JavaScriptMinifier {
 	 * @param string $s
 	 * @param MappingsGenerator|null $mapGenerator
 	 * @param callable|null $onError
+	 * @param callable|null $onDebug See augmentDebugContext() for callback parameter
 	 * @return string
 	 */
-	public static function minifyInternal( $s, $mapGenerator = null, $onError = null ) {
+	public static function minifyInternal( $s, $mapGenerator = null, $onError = null, $onDebug = null ) {
 		self::ensureExpandedStates();
 
 		// Here's where the minifying takes place: Loop through the input, looking for tokens
@@ -2090,7 +2091,17 @@ class JavaScriptMinifier {
 				$lineLength++;
 			}
 
-			// self::debug( $topOfStack, $last, $state, $ch, $token, $type );
+			if ( $onDebug ) {
+				$onDebug( self::augmentDebugContext( [
+					'stack' => $stack,
+					'last' => $last,
+					'state' => $state,
+					'pos' => $pos,
+					'ch' => $ch,
+					'token' => $token,
+					'type' => $type,
+				] ) );
+			}
 
 			if ( $mapGenerator ) {
 				$mapGenerator->outputSpace( $pad );
@@ -2130,40 +2141,37 @@ class JavaScriptMinifier {
 	}
 
 	/**
-	 * @param null|false|int $top
-	 * @param string $last
-	 * @param int $state
-	 * @param string $ch
-	 * @param string $token
-	 * @param int $type
+	 * Replace integer values with the corresponding class constant names
+	 *
+	 * @param array $context
+	 * - int[] 'stack' List of states (class constants)
+	 * - string 'last' Previous character from input stream
+	 * - int 'state' Current state as result of previous character (class constant)
+	 * - int 'pos' Offset of current character in input stream
+	 * - string 'ch' Current character in input stream, first character of current token
+	 * - string 'token' Current token from input stream
+	 * - int 'type' Current type as interpreted from the current character
+	 *
+	 * @return array The $context, with any integer class constants replaced by
+	 * their corresponding class constant name as a string (if found), or else
+	 * their given integer value.
 	 */
-	private static function debug(
-		$top, string $last,
-		int $state, string $ch, string $token, int $type
-	) {
-		static $first = true;
+	private static function augmentDebugContext( array $context ) {
 		$self = new ReflectionClass( self::class );
-
 		foreach ( $self->getConstants() as $name => $value ) {
-			if ( $value === $top ) {
-				$top = $name;
+			foreach ( $context['stack'] as $i => $state ) {
+				if ( $value === $state ) {
+					$context['stack'][$i] = $name;
+				}
 			}
-			if ( $value === $state ) {
-				$state = $name;
+			if ( $value === $context['state'] ) {
+				$context['state'] = $name;
 			}
-			if ( $value === $type ) {
-				$type = $name;
+			if ( $value === $context['type'] ) {
+				$context['type'] = $name;
 			}
 		}
 
-		if ( $first ) {
-			print sprintf( "| %-29s | %-4s | %-29s | %-2s | %-10s | %-29s\n",
-				'topOfStack', 'last', 'state', 'ch', 'token', 'type' );
-			print sprintf( "| %'-29s | %'-4s | %'-29s | %'-2s | %'-10s | %'-29s\n",
-				'', '', '', '', '', '' );
-			$first = false;
-		}
-		print sprintf( "| %-29s | %-4s | %-29s | %-2s | %-10s | %-29s\n",
-			(string)$top, $last, $state, $ch, $token, $type );
+		return $context;
 	}
 }
