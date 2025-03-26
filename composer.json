@@ -34,7 +34,7 @@
 		"ext-fileinfo": "*",
 		"ext-json": "*",
 		"ext-mbstring": "*",
-		"pear/net_url2": "2.2.2"
+		"pear/net_url2": "~2.2.2"
 	},
 	"require-dev": {
 		"mediawiki/mediawiki-codesniffer": "46.0.0",
