@@ -2219,14 +2219,18 @@ class JavaScriptMinifier {
 		$self = new ReflectionClass( self::class );
 		foreach ( $self->getConstants() as $name => $value ) {
 			foreach ( $context['stack'] as $i => $state ) {
-				if ( $value === $state ) {
+				if ( $state === $value ) {
 					$context['stack'][$i] = $name;
+				} elseif ( $state === -$value ) {
+					$context['stack'][$i] = '-' . $name;
 				}
 			}
-			if ( $value === $context['state'] ) {
+			if ( $context['state'] === $value ) {
 				$context['state'] = $name;
+			} elseif ( $context['state'] === -$value ) {
+				$context['state'] = '-' . $name;
 			}
-			if ( $value === $context['type'] ) {
+			if ( $context['type'] === $value ) {
 				$context['type'] = $name;
 			}
 		}
