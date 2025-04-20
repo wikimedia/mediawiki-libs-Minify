@@ -447,6 +447,9 @@ class JavaScriptMinifier {
 		'switch'     => self::TYPE_IF,
 		'catch'      => self::TYPE_IF,
 
+		// ECMAScript 8.0 § 13.7.5 The for-of Statement
+		'of'         => self::TYPE_BIN_OP,
+
 		// The keywords followed by a Statement, Expression, or Block.
 		//
 		//     keyword Statement
