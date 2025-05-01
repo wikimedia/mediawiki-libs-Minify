@@ -88,9 +88,8 @@ class JavaScriptMinifierTest extends TestCase {
 			[ "1.4EE2", "1.4EE2", 'Number with several E' ],
 			[ "1.4EE", "1.4EE", 'Number with several E' ],
 
-			// Cover failure case for number with several E (nonconsecutive)
-			// FIXME: This is invalid, but currently tolerated
-			[ "1.4E2E3", "1.4E2 E3" ],
+			// Cover valid number with E
+			[ "1.4E23", "1.4E23" ],
 
 			// Semicolon insertion between an expression having an inline
 			// comment after it, and a statement on the next line (T29046).
@@ -162,6 +161,12 @@ class JavaScriptMinifierTest extends TestCase {
 				"var foo=\"\\\nblah\\\n\";aNode.setAttribute('href','http://foo.bar.org/baz');"
 			],
 
+			// Comma between args in function call
+			[
+				"myfunc('a', 'b', 'c');",
+				"myfunc('a','b','c');"
+			],
+
 			// Division vs. regex nastiness
 			[
 				"alert( (10+10) / '/'.charCodeAt( 0 ) + '//' );",
@@ -231,6 +236,11 @@ class JavaScriptMinifierTest extends TestCase {
 			// Changing to `!(0).toString()` would return bool false instead of string "true"
 			[ "true.toString();", "true.toString();" ],
 			[ "x = true.toString()", "x=true.toString()" ],
+
+			// Combined variable declations
+			[ 'var a = 1, b = 2;', 'var a=1,b=2;' ],
+			[ 'let a = 1, b = 2;', 'let a=1,b=2;' ],
+			[ 'const a = 1, b = 2;', 'const a=1,b=2;' ],
 
 			// Template strings
 			[ 'let a = `foo + ${ 1 + 2 } + bar`;', 'let a=`foo + ${1+2} + bar`;' ],
@@ -424,13 +434,17 @@ JAVASCRIPT
 			[
 				"function myFunc(\n  parOne,\nparTwo,\nparThree, // Trailing comma is valid here.\n) {}",
 				// TODO: trailing comma should be removed
-				"function myFunc(parOne,parTwo,parThree,){}"
+				"function myFunc(parOne,parTwo,parThree,){}",
+				null,
+				'Ignore Peast-AST difference: Harmless, we recognise trailing commas'
 			],
 			// Trailing comma in function call
 			[
 				"var  x =  fun(1,  2,3,\n 4,\n ) ;",
 				// TODO: trailing comma should be removed
-				"var x=fun(1,2,3,4,);"
+				"var x=fun(1,2,3,4,);",
+				null,
+				'Ignore Peast-AST difference: Harmless, we recognise trailing commas'
 			],
 			[
 				"let lat = ((_b = json_js.wr_properties) == null ? void 0 : _b.lat) ?? 47;\n function get_austria_feature() {\nreturn feature;\n}",
@@ -791,9 +805,7 @@ JAVASCRIPT
 	public function testLineBreaker( $code, $lineLength, array $expectedLines ) {
 		$this->setMaxLineLength( $lineLength );
 		$actual = JavaScriptMinifier::minify( $code );
-		// var_dump($actual);
 		$this->assertEquals(
-			// array_merge( [ '' ], $expectedLines ),
 			$expectedLines,
 			explode( "\n", $actual )
 		);
