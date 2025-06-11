@@ -7,7 +7,7 @@ use PHPUnit\Framework\TestCase;
 use Wikimedia\Minify\JavaScriptMinifier;
 
 /**
- * Valisdate JavaScriptMinifier token stream against Peast AST.
+ * Validate JavaScriptMinifier token stream against Peast AST.
  *
  * Since Minify v2.8.1, we no longer insert new lines (T368204). This has
  * made JavaScriptMinifier significantly more stable. But, for us as

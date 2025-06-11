@@ -450,6 +450,45 @@ JAVASCRIPT
 				"let lat = ((_b = json_js.wr_properties) == null ? void 0 : _b.lat) ?? 47;\n function get_austria_feature() {\nreturn feature;\n}",
 				"let lat=((_b=json_js.wr_properties)==null?void 0:_b.lat)??47;function get_austria_feature(){return feature;}"
 			],
+			// ES2018 RegEx lookbehinds
+			[
+				"let a = /(?<=foo)bar/;",
+				"let a=/(?<=foo)bar/;"
+			],
+			[
+				"let a = 'bazbar'; a = a.replace( /(?<!foo)bar/, 'foo' ); console.log( a );",
+				"let a='bazbar';a=a.replace(/(?<!foo)bar/,'foo');console.log(a);"
+			],
+			// ES2018 RegEx /s flag
+			[
+				"let a = /bar/s;",
+				"let a=/bar/s;"
+			],
+			// ES2018 RegEx named capture groups
+			[
+				"console.log( '2024-01-01'.match( /(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})/ ).groups );",
+				"console.log('2024-01-01'.match(/(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})/).groups);"
+			],
+			// ES2018 RegEx unicode property escapes
+			[
+				"let a = /\\p{Script=Greek}/u;",
+				"let a=/\\p{Script=Greek}/u;"
+			],
+			// ES2018 spread operator for arrays
+			[
+				"let arr1 = [ 1, 2, 3 ]; let arr2 = [ 4, 5, 6 ]; let arr3 = [ ...arr1, ...arr2 ]; console.log( arr3 );",
+				"let arr1=[1,2,3];let arr2=[4,5,6];let arr3=[...arr1,...arr2];console.log(arr3);"
+			],
+			// ES2018 spread operator for objects
+			[
+				"let obj1 = { 1: 1, 2: 2, 3: 3 }; let obj2 = { 4: 4, 5: 5, 6: 6 }; let obj3 = { ...obj1, ...obj2 }; console.log( obj3 );",
+				"let obj1={1:1,2:2,3:3};let obj2={4:4,5:5,6:6};let obj3={...obj1,...obj2};console.log(obj3);"
+			],
+			// ES2018 asynchronous iteration ("for await")
+			[
+				"for await (const item of iterable) { console.log( item ); }",
+				"for await(const item of iterable){console.log(item);}"
+			],
 		];
 	}
 
