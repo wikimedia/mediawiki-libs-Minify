@@ -64,7 +64,7 @@ workarounds, please let us know!
 * Issue tracker: <https://phabricator.wikimedia.org/tag/wikimedia-minify/>
 * Source code: <https://gerrit.wikimedia.org/g/mediawiki/libs/Minify>
 * Submit patches via Gerrit: <https://www.mediawiki.org/wiki/Developer_account>
-* To run tests: `composer update`, then `composer exec phpunit`
+* To run tests: `composer update`, then `composer test`
 
 ## See also
 
