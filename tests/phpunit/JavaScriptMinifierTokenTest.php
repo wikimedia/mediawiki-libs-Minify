@@ -119,6 +119,7 @@ class JavaScriptMinifierTokenTest extends TestCase {
 					// Nothing to do, traverse the child nodes directly.
 					break;
 				case 'ArrayExpression':
+				case 'ArrayPattern':
 					$expected[] = [ 'type' => 'TYPE_PAREN_OPEN', 'token' => '[' ];
 					foreach ( $node->getElements() as $i => $child ) {
 						if ( $i !== 0 ) {
@@ -349,6 +350,7 @@ class JavaScriptMinifierTokenTest extends TestCase {
 					$traverse( $value, $node );
 					return Traverser::DONT_TRAVERSE_CHILD_NODES;
 				case 'ObjectExpression':
+				case 'ObjectPattern':
 					$expected[] = [ 'type' => 'TYPE_BRACE_OPEN', 'token' => '{' ];
 					foreach ( $node->getProperties() as $i => $child ) {
 						if ( $i !== 0 ) {
@@ -401,6 +403,7 @@ class JavaScriptMinifierTokenTest extends TestCase {
 					$expected[] = [ 'type' => 'TYPE_PAREN_CLOSE', 'token' => ')' ];
 					return Traverser::DONT_TRAVERSE_CHILD_NODES;
 				case 'SpreadElement':
+				case 'RestElement':
 					$expected[] = [ 'type' => 'TYPE_UN_OP', 'token' => '...' ];
 					$traverse( $node->getArgument(), $node );
 					return Traverser::DONT_TRAVERSE_CHILD_NODES;

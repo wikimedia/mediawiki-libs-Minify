@@ -478,7 +478,7 @@ JAVASCRIPT
 				"let a = /\\p{Script=Greek}/u;",
 				"let a=/\\p{Script=Greek}/u;"
 			],
-			// ES2018 spread operator for arrays
+			// ES2015 spread operator for arrays
 			[
 				"let arr1 = [ 1, 2, 3 ]; let arr2 = [ 4, 5, 6 ]; let arr3 = [ ...arr1, ...arr2 ]; console.log( arr3 );",
 				"let arr1=[1,2,3];let arr2=[4,5,6];let arr3=[...arr1,...arr2];console.log(arr3);"
@@ -487,6 +487,26 @@ JAVASCRIPT
 			[
 				"let obj1 = { 1: 1, 2: 2, 3: 3 }; let obj2 = { 4: 4, 5: 5, 6: 6 }; let obj3 = { ...obj1, ...obj2 }; console.log( obj3 );",
 				"let obj1={1:1,2:2,3:3};let obj2={4:4,5:5,6:6};let obj3={...obj1,...obj2};console.log(obj3);"
+			],
+			// ES2015 spread operator in function/method call
+			[
+				"myFunc( ...args );    new C().myFunc( ...args );",
+				"myFunc(...args);new C().myFunc(...args);",
+			],
+			// ES2015 rest operator in array destructuring
+			[
+				"let [a, ...b] = [1, 2,3,  4]",
+				"let[a,...b]=[1,2,3,4]"
+			],
+			// ES2018 rest operator in object destructuring
+			[
+				"let {x, ...others} = {x: 1, y: 2, z: 3}",
+				"let{x,...others}={x:1,y:2,z:3}"
+			],
+			// ES2015 rest operator in function/method declaration
+			[
+				"function myFunc( ...args ) {}  \n class C { myFunc( ...args ) {} }",
+				"function myFunc(...args){}class C{myFunc(...args){}}",
 			],
 			// ES2018 asynchronous iteration ("for await")
 			[
