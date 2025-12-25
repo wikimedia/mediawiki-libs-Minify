@@ -849,4 +849,49 @@ JAVASCRIPT
 			explode( "\n", $actual )
 		);
 	}
+
+	/**
+	 * Ensures that the optimized operator lookahead logic in minifyInternal
+	 * is in sync with the token definitions in $tokenTypes.
+	 */
+	public function testOperatorLookaheadCoversAllTokens() {
+		$reflection = new ReflectionClass( JavaScriptMinifier::class );
+		$tokenTypes = $reflection->getProperty( 'tokenTypes' )->getValue();
+		$opChars = $reflection->getProperty( 'opChars' )->getValue();
+
+		// Filter for operators: tokens that start with a character in $opChars
+		$operators = [];
+		foreach ( array_keys( $tokenTypes ) as $token ) {
+			if ( isset( $opChars[ $token[0] ] ) ) {
+				$operators[] = $token;
+			}
+		}
+
+		// Make sure each operator is parsed as a single token
+		foreach ( $operators as $op ) {
+			// Prepend 'x' to force the parser into an expression state,
+			// ensuring '/' is parsed as division and not a regex.
+			$source = "x" . $op;
+
+			$capturedTokens = [];
+			$onDebug = static function ( $state ) use ( &$capturedTokens ) {
+				$capturedTokens[] = $state['token'];
+			};
+
+			JavaScriptMinifier::minifyInternal( $source, null, null, $onDebug );
+
+			// Expect: ['x', $op]
+			$this->assertCount(
+				2,
+				$capturedTokens,
+				"Minifier failed to parse '$op' as a single token."
+			);
+
+			$this->assertSame(
+				$op,
+				$capturedTokens[1],
+				"Lookahead logic parsed '$op' incorrectly."
+			);
+		}
+	}
 }

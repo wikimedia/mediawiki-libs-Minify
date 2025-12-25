@@ -181,13 +181,6 @@ class JavaScriptMinifier {
 	/** @var int Limit to avoid excessive memory usage */
 	private const STACK_LIMIT = 1000;
 
-	/** Length of the longest token in $tokenTypes made of punctuation characters,
-	 * as defined in $opChars. Update this if you add longer tokens to $tokenTypes.
-	 *
-	 * Currently, the longest punctuation token is `>>>=`, which is 4 characters.
-	 */
-	private const LONGEST_PUNCTUATION_TOKEN = 4;
-
 	/**
 	 * @var int $maxLineLength
 	 *
@@ -2098,16 +2091,114 @@ class JavaScriptMinifier {
 					$end += $len;
 				}
 			} elseif ( isset( $opChars[$ch] ) ) {
-				// Punctuation character. Search for the longest matching operator.
-				for ( $tokenLength = self::LONGEST_PUNCTUATION_TOKEN; $tokenLength > 1; $tokenLength-- ) {
-					if (
-						$pos + $tokenLength <= $length &&
-						isset( $tokenTypes[ substr( $s, $pos, $tokenLength ) ] )
-					) {
-						$end = $pos + $tokenLength;
+				// Punctuation character.
+				// Optimization: Parse multi-character operators with direct lookahead
+				// <https://gerrit.wikimedia.org/r/c/mediawiki/libs/Minify/+/1221106>
+				$next = $pos + 1 < $length ? $s[$pos + 1] : '';
+				switch ( $ch ) {
+					case '.':
+						// Check for ...
+						if ( $next === '.' && $pos + 2 < $length && $s[$pos + 2] === '.' ) {
+							$end += 2;
+						}
 						break;
-					}
+					case '+':
+					case '-':
+					case '&':
+					case '|':
+						// Check for doubled (++, --, &&, ||) or assignment (+=, -=, &=, |=)
+						if ( $next === $ch || $next === '=' ) {
+							$end++;
+						}
+						break;
+					case '*':
+						// Check for **, *=, **=
+						if ( $next === '*' ) {
+							$end++;
+							// Check for **=
+							if ( $pos + 2 < $length && $s[$pos + 2] === '=' ) {
+								$end++;
+							}
+						} elseif ( $next === '=' ) {
+							$end++;
+						}
+						break;
+					case '/':
+					case '%':
+					case '^':
+						// Check for /=, %=, ^=
+						if ( $next === '=' ) {
+							$end++;
+						}
+						break;
+					case '=':
+						// Check for ==, ===, or =>
+						if ( $next === '=' ) {
+							$end++;
+							// Check for ===
+							if ( $pos + 2 < $length && $s[$pos + 2] === '=' ) {
+								$end++;
+							}
+						} elseif ( $next === '>' ) {
+							$end++;
+						}
+						break;
+					case '!':
+						// Check for != or !==
+						if ( $next === '=' ) {
+							$end++;
+							// Check for !==
+							if ( $pos + 2 < $length && $s[$pos + 2] === '=' ) {
+								$end++;
+							}
+						}
+						break;
+					case '<':
+						// Check for <<, <=, <<=
+						if ( $next === '<' ) {
+							$end++;
+							// Check for <<=
+							if ( $pos + 2 < $length && $s[$pos + 2] === '=' ) {
+								$end++;
+							}
+						} elseif ( $next === '=' ) {
+							$end++;
+						}
+						break;
+					case '>':
+						// Check for >>, >>>, >=, >>=, >>>=
+						if ( $next === '>' ) {
+							$end++;
+							// We are at '>>', check for third char
+							if ( $pos + 2 < $length ) {
+								$next2 = $s[$pos + 2];
+								if ( $next2 === '>' ) {
+									// >>>
+									$end++;
+									if ( $pos + 3 < $length && $s[$pos + 3] === '=' ) {
+										// >>>=
+										$end++;
+									}
+								} elseif ( $next2 === '=' ) {
+									// >>=
+									$end++;
+								}
+							}
+						} elseif ( $next === '=' ) {
+							// >=
+							$end++;
+						}
+						break;
+
+					case '?':
+						// Check for ??
+						if ( $next === '?' ) {
+							$end++;
+						}
+						break;
 				}
+				// All other opChars ({, }, (, ), [, ], :, ;, ,, ~, etc) are single-char tokens
+				// so $end (which is $pos + 1) is already correct.
 			} else {
 				// Identifier or reserved word. Search for the end by excluding whitespace and
 				// punctuation.
