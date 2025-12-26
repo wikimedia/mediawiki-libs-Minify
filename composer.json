@@ -56,6 +56,7 @@
 			"@phan",
 			"minus-x check ."
 		],
+		"bench": "@php -d opcache.enable_cli=1 tests/bench.php",
 		"changelog": "git log --format='* %s (%aN)' --no-merges --reverse $(git describe --tags --abbrev=0 HEAD)...HEAD | sort | grep -vE '^\\* (build|docs?|tests?):'",
 		"cover": "phpunit --coverage-html coverage",
 		"fix": [
