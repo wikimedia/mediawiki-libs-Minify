@@ -1842,6 +1842,14 @@ class JavaScriptMinifier {
 	public static function minifyInternal( $s, $mapGenerator = null, $onError = null, $onDebug = null ) {
 		self::ensureExpandedStates();
 
+		// Optimization: alias static properties accessed in the hot loop to local variables.
+		$opChars = self::$opChars;
+		$tokenTypes = self::$tokenTypes;
+		$model = self::$model;
+		$semicolon = self::$semicolon;
+		$divStates = self::$divStates;
+		$maxLineLength = self::$maxLineLength;
+
 		// Here's where the minifying takes place: Loop through the input, looking for tokens
 		// and output them to $out, taking actions to the above defined rules when appropriate.
 		$error = null;
@@ -1978,7 +1986,7 @@ class JavaScriptMinifier {
 
 			// We have to distinguish between regexp literals and division operators
 			// A division operator is only possible in certain states
-			} elseif ( $ch === '/' && !isset( self::$divStates[$state] ) ) {
+			} elseif ( $ch === '/' && !isset( $divStates[$state] ) ) {
 				// Regexp literal
 				for ( ; ; ) {
 					// Search until we find "/" (end of regexp), "\" (backslash escapes),
@@ -2089,12 +2097,12 @@ class JavaScriptMinifier {
 					}
 					$end += $len;
 				}
-			} elseif ( isset( self::$opChars[$ch] ) ) {
+			} elseif ( isset( $opChars[$ch] ) ) {
 				// Punctuation character. Search for the longest matching operator.
 				for ( $tokenLength = self::LONGEST_PUNCTUATION_TOKEN; $tokenLength > 1; $tokenLength-- ) {
 					if (
 						$pos + $tokenLength <= $length &&
-						isset( self::$tokenTypes[ substr( $s, $pos, $tokenLength ) ] )
+						isset( $tokenTypes[ substr( $s, $pos, $tokenLength ) ] )
 					) {
 						$end = $pos + $tokenLength;
 						break;
@@ -2109,9 +2117,9 @@ class JavaScriptMinifier {
 			// Now get the token type from our type array
 			// so $end - $pos == strlen( $token )
 			$token = substr( $s, $pos, $end - $pos );
-			$type = isset( self::$model[$state][self::TYPE_SPECIAL][$token] )
+			$type = isset( $model[$state][self::TYPE_SPECIAL][$token] )
 				? self::TYPE_SPECIAL
-				: self::$tokenTypes[$token] ?? self::TYPE_LITERAL;
+				: $tokenTypes[$token] ?? self::TYPE_LITERAL;
 			if ( $type === self::TYPE_YIELD ) {
 				// yield is treated as TYPE_RETURN inside a generator function (negative state)
 				// but as TYPE_LITERAL when not in a generator function (positive state)
@@ -2120,7 +2128,7 @@ class JavaScriptMinifier {
 
 			$pad = '';
 
-			if ( $newlineFound && isset( self::$semicolon[$state][$type] ) ) {
+			if ( $newlineFound && isset( $semicolon[$state][$type] ) ) {
 				// This token triggers the semicolon insertion mechanism of javascript. While we
 				// could add the ; token here ourselves, keeping the newline has a few advantages.
 				$pad = "\n";
@@ -2130,15 +2138,15 @@ class JavaScriptMinifier {
 			// a newline was found in this this position, if it wasn't, it uses the next available
 			// line break
 			} elseif ( $newlineFound &&
-				$lineLength + $end - $pos > self::$maxLineLength &&
-				!isset( self::$semicolon[$state][$type] ) &&
+				$lineLength + $end - $pos > $maxLineLength &&
+				!isset( $semicolon[$state][$type] ) &&
 				$type !== self::TYPE_INCR_OP &&
 				$type !== self::TYPE_ARROW
 			) {
 				$pad = "\n";
 				$lineLength = 0;
 			// Check, whether we have to separate the token from the last one with whitespace
-			} elseif ( !isset( self::$opChars[$last] ) && !isset( self::$opChars[$ch] ) ) {
+			} elseif ( !isset( $opChars[$last] ) && !isset( $opChars[$ch] ) ) {
 				$pad = ' ';
 				$lineLength++;
 			// Don't accidentally create ++, -- or // tokens
@@ -2181,8 +2189,8 @@ class JavaScriptMinifier {
 
 			// Now that we have output our token, transition into the new state.
 			$actions = $type === self::TYPE_SPECIAL ?
-				self::$model[$state][$type][$token] :
-				self::$model[$state][$type] ?? [];
+				$model[$state][$type][$token] :
+				$model[$state][$type] ?? [];
 			if ( isset( $actions[self::ACTION_PUSH] ) &&
 				count( $stack ) < self::STACK_LIMIT
 			) {
