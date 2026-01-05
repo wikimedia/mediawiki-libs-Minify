@@ -245,6 +245,122 @@ class JavaScriptMinifier {
 	];
 
 	/**
+	 * Table-driven lookahead map for parsing multi-character punctuation operators.
+	 *
+	 * This is the subset of $tokenTypes keys, made of two or more $opChars. It must be
+	 * updated whenever punctuation operators are added to $tokenTypes. This is ensured
+	 * by the JavaScriptMinifierTest::testOperatorLookaheadCoversAllTokens test case.
+	 *
+	 * The shape of this map is one character offset per array level (or "column").
+	 * The total depth is based on the longest punctuation token in $tokenTypes.
+	 * Currently, the longest punctuation token is `>>>=`, which is 4 characters.
+	 *
+	 * Example:
+	 * - Token AB is stored at `['A']['B'][''][''] === 2`,
+	 *   Token ABC is stored at `['A']['B']['C'][''] === 3`,
+	 *   Token ABCD is stored at `['A']['B']['C']['D'] === 4`
+	 * - The parser looks at `map[$ch][$next2][$next3][$next4]`.
+	 * - If set, it directly moves past that number of characters to parse the current token.
+	 *
+	 * We have a fairly even distribution (most starting characters lead to only 1 or 2 possible
+	 * tokens), so the most valuable optimization is to look at the first character and narrow
+	 * our options, before performing any other potentially unnecessary assignments and lookups.
+	 *
+	 * The most common token length in this map is 2 (because 3 and 4 are rare, and 1-length tokens
+	 * don't need lookahead) and most of those are unambigious (i.e. not the start of a longer
+	 * token) which allows for a further optimization. Whenever possible, we store length 2 in
+	 * a shortcut directly under `map[$ch][$next2]` instead of `map[$ch][$next2]['']['']`.
+	 * This allows the parser to usually stop after 2 lookups (at the cost of an extra isset),
+	 * instead of always peforming the worst case (4 lookups) for all operators.
+	 */
+	private const MULTICHAR_PUNCTOKENS = [
+		'.' => [
+			'.' => [
+				'.' => [
+					'' => 3,
+				],
+			],
+		],
+		'+' => [
+			'+' => 2,
+			'=' => 2,
+		],
+		'-' => [
+			'-' => 2,
+			'=' => 2,
+		],
+		'*' => [
+			'*' => [
+				'' => 2,
+				'=' => [
+					'' => 3,
+				],
+			],
+			'=' => 2,
+		],
+		'<' => [
+			'<' => [
+				'' => 2,
+				'=' => [
+					'' => 3,
+				],
+			],
+			'=' => 2,
+		],
+		'>' => [
+			'>' => [
+				'' => 2,
+				'>' => [
+					'' => 3,
+					'=' => 4,
+				],
+				'=' => [
+					'' => 3,
+				],
+				'>=' => 4,
+			],
+			'=' => 2,
+		],
+		'=' => [
+			'=' => [
+				'' => 2,
+				'=' => [
+					'' => 3,
+				],
+			],
+			'>' => 2,
+		],
+		'!' => [
+			'=' => [
+				'' => 2,
+				'=' => [
+					'' => 3,
+				],
+			],
+		],
+		'&' => [
+			'&' => 2,
+			'=' => 2,
+		],
+		'|' => [
+			'|' => 2,
+			'=' => 2,
+		],
+		'?' => [
+			'?' => 2,
+		],
+		'/' => [
+			'=' => 2,
+		],
+		'%' => [
+			'=' => 2,
+		],
+		'^' => [
+			'=' => 2,
+		],
+	];
+
+	/**
 	 * @var array $tokenTypes
 	 *
 	 * Tokens and their types.
@@ -1837,6 +1953,7 @@ class JavaScriptMinifier {
 
 		// Optimization: alias static properties accessed in the hot loop to local variables.
 		$opChars = self::$opChars;
+		$multicharPuncTokens = self::MULTICHAR_PUNCTOKENS;
 		$tokenTypes = self::$tokenTypes;
 		$model = self::$model;
 		$semicolon = self::$semicolon;
@@ -2090,116 +2207,35 @@ class JavaScriptMinifier {
 					}
 					$end += $len;
 				}
-			} elseif ( isset( $opChars[$ch] ) ) {
-				// Punctuation character.
-				// Optimization: Parse multi-character operators with direct lookahead
+			} elseif ( isset( $multicharPuncTokens[$ch] ) ) {
+				// Optimization: Parse multi-character punctuation operators with direct lookahead
 				// <https://gerrit.wikimedia.org/r/c/mediawiki/libs/Minify/+/1221106>
-				$next = $pos + 1 < $length ? $s[$pos + 1] : '';
-				switch ( $ch ) {
-					case '.':
-						// Check for ...
-						if ( $next === '.' && $pos + 2 < $length && $s[$pos + 2] === '.' ) {
-							$end += 2;
-						}
-						break;
-					case '+':
-					case '-':
-					case '&':
-					case '|':
-						// Check for doubled (++, --, &&, ||) or assignment (+=, -=, &=, |=)
-						if ( $next === $ch || $next === '=' ) {
-							$end++;
-						}
-						break;
-					case '*':
-						// Check for **, *=, **=
-						if ( $next === '*' ) {
-							$end++;
-							// Check for **=
-							if ( $pos + 2 < $length && $s[$pos + 2] === '=' ) {
-								$end++;
-							}
-						} elseif ( $next === '=' ) {
-							$end++;
-						}
-						break;
-					case '/':
-					case '%':
-					case '^':
-						// Check for /=, %=, ^=
-						if ( $next === '=' ) {
-							$end++;
-						}
-						break;
-					case '=':
-						// Check for ==, ===, or =>
-						if ( $next === '=' ) {
-							$end++;
-							// Check for ===
-							if ( $pos + 2 < $length && $s[$pos + 2] === '=' ) {
-								$end++;
-							}
-						} elseif ( $next === '>' ) {
-							$end++;
-						}
-						break;
-					case '!':
-						// Check for != or !==
-						if ( $next === '=' ) {
-							$end++;
-							// Check for !==
-							if ( $pos + 2 < $length && $s[$pos + 2] === '=' ) {
-								$end++;
-							}
-						}
-						break;
-					case '<':
-						// Check for <<, <=, <<=
-						if ( $next === '<' ) {
-							$end++;
-							// Check for <<=
-							if ( $pos + 2 < $length && $s[$pos + 2] === '=' ) {
-								$end++;
-							}
-						} elseif ( $next === '=' ) {
-							$end++;
-						}
-						break;
-					case '>':
-						// Check for >>, >>>, >=, >>=, >>>=
-						if ( $next === '>' ) {
-							$end++;
-							// We are at '>>', check for third char
-							if ( $pos + 2 < $length ) {
-								$next2 = $s[$pos + 2];
-								if ( $next2 === '>' ) {
-									// >>>
-									$end++;
-									if ( $pos + 3 < $length && $s[$pos + 3] === '=' ) {
-										// >>>=
-										$end++;
-									}
-								} elseif ( $next2 === '=' ) {
-									// >>=
-									$end++;
-								}
-							}
-						} elseif ( $next === '=' ) {
-							// >=
-							$end++;
-						}
-						break;
-
-					case '?':
-						// Check for ??
-						if ( $next === '?' ) {
-							$end++;
-						}
-						break;
+				if (
+					$pos + 1 < $length &&
+					// phpcs:ignore Generic.CodeAnalysis.AssignmentInCondition.Found
+					( $submap2 = $multicharPuncTokens[$ch][$s[$pos + 1]] ?? null )
+					// @phan-suppress-previous-line PhanTypeMismatchDimFetchNullable -- False positive
+				) {
+					if ( $submap2 === 2 ) {
+						// Optimization: Shortcut for the common case of an unambiguous 2-char punctuation token
+						$end = $pos + 2;
+					} else {
+						$next3 = $pos + 2 < $length ? $s[$pos + 2] : '';
+						$next4 = $pos + 3 < $length ? $s[$pos + 3] : '';
+						// 4-char token,
+						// or 3-char token,
+						// or 2-char token that is a subset of a not-seen 3- or 4-char token
+						//
+						// NOTE: The `1` fallback ensures graceful handling of invalid syntax like `..*`,
+						// instead of causing infinite recursion. We don't need to set `$pos + 1`, because
+						// that is the default, but we assign unconditionally here because all valid syntax
+						// needs an assignment. Adding checks to avoid it for invalid syntax doesn't pay off.
+						$end = $pos + ( $submap2[$next3][$next4] ?? $submap2[$next3][''] ?? $submap2[''] ?? 1 );
+					}
 				}
 				// All other opChars ({, }, (, ), [, ], :, ;, ,, ~, etc) are single-char tokens
 				// so $end (which is $pos + 1) is already correct.
-			} else {
+			} elseif ( !isset( $opChars[$ch] ) ) {
 				// Identifier or reserved word. Search for the end by excluding whitespace and
 				// punctuation.
 				$end += strcspn( $s, " \t\n.;,=<>+-{}()[]?:*/%'\"`!&|^~\xb\xc\r", $end );
@@ -2320,6 +2356,9 @@ class JavaScriptMinifier {
 	private static function augmentDebugContext( array $context ) {
 		$self = new ReflectionClass( self::class );
 		foreach ( $self->getConstants() as $name => $value ) {
+			if ( !is_int( $value ) ) {
+				continue;
+			}
 			foreach ( $context['stack'] as $i => $state ) {
 				if ( $state === $value ) {
 					$context['stack'][$i] = $name;

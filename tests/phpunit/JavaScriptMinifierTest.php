@@ -110,6 +110,9 @@ class JavaScriptMinifierTest extends TestCase {
 			// FIXME: This is invalid, but currently tolerated
 			[ "'a", "'a" ],
 
+			// Cover invalid syntax, ensuring no infinite loop. https://gerrit.wikimedia.org/r/1223001
+			[ "a..*b", "a..*b" ],
+
 			// Token separation
 			[ "x  in  y", "x in y" ],
 			[ "/x/g  in  y", "/x/g in y" ],
