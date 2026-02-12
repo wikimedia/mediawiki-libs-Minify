@@ -2214,7 +2214,6 @@ class JavaScriptMinifier {
 					$pos + 1 < $length &&
 					// phpcs:ignore Generic.CodeAnalysis.AssignmentInCondition.Found
 					( $submap2 = $multicharPuncTokens[$ch][$s[$pos + 1]] ?? null )
-					// @phan-suppress-previous-line PhanTypeMismatchDimFetchNullable -- False positive
 				) {
 					if ( $submap2 === 2 ) {
 						// Optimization: Shortcut for the common case of an unambiguous 2-char punctuation token
