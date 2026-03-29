@@ -32,7 +32,6 @@
 	"require": {
 		"php": ">=8.1",
 		"ext-fileinfo": "*",
-		"ext-json": "*",
 		"ext-mbstring": "*",
 		"pear/net_url2": "~2.2.2"
 	},
