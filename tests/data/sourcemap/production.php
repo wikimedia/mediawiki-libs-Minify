@@ -1,4 +1,5 @@
 <?php
+declare( strict_types = 1 );
 
 use Wikimedia\Minify\IndexMap;
 use Wikimedia\Minify\IndexMapOffset;

@@ -1,4 +1,6 @@
 <?php
+declare( strict_types = 1 );
+
 /**
  * Copyright 2011 Paul Copperman <paul.copperman@gmail.com>
  * Copyright 2018 Timo Tijhof

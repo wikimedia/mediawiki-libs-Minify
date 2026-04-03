@@ -1,4 +1,5 @@
 <?php
+declare( strict_types = 1 );
 
 use Peast\Peast;
 use Peast\Syntax\Exception as PeastSyntaxException;
