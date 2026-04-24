@@ -105,7 +105,7 @@ class JavaScriptMinifierTokenTest extends TestCase {
 		$expected = [];
 		$genFnStack = [];
 
-		$traverse = static function ( $node, $parent ) use ( &$traverse, &$expected, &$genFnStack ) {
+		$traverse = static function ( $node, $parent ) use ( $code, &$traverse, &$expected, &$genFnStack ) {
 			if ( !$node ) {
 				return;
 			}
@@ -321,7 +321,15 @@ class JavaScriptMinifierTokenTest extends TestCase {
 					return Traverser::DONT_TRAVERSE_CHILD_NODES;
 				case 'Literal':
 				case 'RegExpLiteral':
-					$expected[] = [ 'type' => 'TYPE_LITERAL', 'token' => (string)$node->getRaw() ];
+					if ( $type === 'Literal' && method_exists( $node, 'getBigint' ) ) {
+						$location = $node->getLocation();
+						$start = $location->getStart()->getIndex();
+						$end = $location->getEnd()->getIndex();
+						$raw = substr( $code, $start, $end - $start );
+					} else {
+						$raw = (string)$node->getRaw();
+					}
+					$expected[] = [ 'type' => 'TYPE_LITERAL', 'token' => $raw ];
 					return Traverser::DONT_TRAVERSE_CHILD_NODES;
 				case 'MemberExpression':
 					$traverse( $node->getObject(), $node );

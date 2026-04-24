@@ -566,6 +566,27 @@ JAVASCRIPT
 				"let value = 1?.toString();",
 				"let value=1?.toString();"
 			],
+			// ES2020 BigInt literals
+			[
+				"let value = 123n;",
+				"let value=123n;"
+			],
+			[
+				"let value = 0n;",
+				"let value=0n;"
+			],
+			[
+				"let value = 0xFFn + 0b101n + 0o77n;",
+				"let value=0xFFn+0b101n+0o77n;"
+			],
+			[
+				"let value = 1n.toString();",
+				"let value=1n.toString();"
+			],
+			[
+				"let value = 123n / divisor;",
+				"let value=123n/divisor;"
+			],
 		];
 	}
 

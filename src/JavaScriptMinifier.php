@@ -43,8 +43,8 @@ use ReflectionClass;
  * new to later editions of ECMAScript might not be supported. It's assumed that the input is
  * syntactically correct; if it's not, this class may not detect that, and may produce incorrect
  * output.
- * Specific ECMAScript 2020 parsing features are supported where noted below, including nullish
- * coalescing and optional chaining.
+ * Specific ECMAScript 2020 parsing features are supported where noted below, including BigInt
+ * literals, nullish coalescing, and optional chaining.
  *
  * See also:
  * - <https://262.ecma-international.org/10.0/>
@@ -2167,21 +2167,33 @@ class JavaScriptMinifier {
 				while ( $end < $length && ctype_alpha( $s[$end] ) ) {
 					$end++;
 				}
-			} elseif (
-				$ch === '0'
-				&& ( $pos + 1 < $length ) && ( $s[$pos + 1] === 'x' || $s[$pos + 1] === 'X' )
-			) {
-				// Hex numeric literal
-				// x or X
+
+			// @phan-suppress-next-line PhanParamSuspiciousOrder
+			} elseif ( $ch === '0' && $pos + 1 < $length && str_contains( 'xXbBoO', $s[$pos + 1] ) ) {
+				// Non-decimal integer literal, with optional BigInt suffix.
 				$end++;
-				$len = strspn( $s, '0123456789ABCDEFabcdef', $end );
+				$prefix = $s[$pos + 1];
+				$digits = match ( $prefix ) {
+					'x', 'X' => '0123456789ABCDEFabcdef',
+					'b', 'B' => '01',
+					'o', 'O' => '01234567',
+				};
+				$len = strspn( $s, $digits, $end );
 				if ( !$len && !$error ) {
+					$base = match ( $prefix ) {
+						'x', 'X' => 'hexadecimal',
+						'b', 'B' => 'binary',
+						'o', 'O' => 'octal',
+					};
 					$error = new ParseError(
-						'Expected a hexadecimal number but found ' . substr( $s, $pos, 5 ),
+						"Expected a $base number but found " . substr( $s, $pos, 5 ),
 						$pos,
 					);
 				}
 				$end += $len;
+				if ( $end < $length && $s[$end] === 'n' ) {
+					$end++;
+				}
 			} elseif (
 				// Optimisation: This check must accept only ASCII digits 0-9.
 				// Avoid ctype_digit() because it is slower and also accepts locale-specific digits.
@@ -2231,6 +2243,10 @@ class JavaScriptMinifier {
 						);
 					}
 					$end += $len;
+				}
+				if ( !$decimal && !$exponent && $end < $length && $s[$end] === 'n' ) {
+					$end++;
+					$dotlessNum = false;
 				}
 			} elseif ( isset( $multicharPuncTokens[$ch] ) ) {
 				// Optimization: Parse multi-character punctuation operators with direct lookahead
