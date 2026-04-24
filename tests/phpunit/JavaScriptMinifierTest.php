@@ -513,6 +513,15 @@ JAVASCRIPT
 				"for await (const item of iterable) { console.log( item ); }",
 				"for await(const item of iterable){console.log(item);}"
 			],
+			// ES2019 optional catch binding
+			[
+				"try { risky(); } catch { recover(); }",
+				"try{risky();}catch{recover();}"
+			],
+			[
+				"try { risky(); } catch { recover(); } finally { cleanup(); }",
+				"try{risky();}catch{recover();}finally{cleanup();}"
+			],
 		];
 	}
 
