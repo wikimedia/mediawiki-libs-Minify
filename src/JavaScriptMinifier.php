@@ -43,6 +43,8 @@ use ReflectionClass;
  * new to later editions of ECMAScript might not be supported. It's assumed that the input is
  * syntactically correct; if it's not, this class may not detect that, and may produce incorrect
  * output.
+ * Specific ECMAScript 2020 parsing features are supported where noted below, including nullish
+ * coalescing and optional chaining.
  *
  * See also:
  * - <https://262.ecma-international.org/10.0/>
@@ -349,6 +351,7 @@ class JavaScriptMinifier {
 		],
 		'?' => [
 			'?' => 2,
+			'.' => 2,
 		],
 		'/' => [
 			'=' => 2,
@@ -376,10 +379,13 @@ class JavaScriptMinifier {
 		// ECMAScript 10.0 § 12.3 Left-Hand-Side Expressions
 		//
 		//    MemberExpression
+		//    OptionalExpression
 		//
 		// A dot can also be part of a DecimalLiteral, but in that case we handle the entire
 		// DecimalLiteral as one token. A separate '.' token is always part of a MemberExpression.
 		'.'          => self::TYPE_DOT,
+		// ECMAScript 11.0 § 12.3 Left-Hand-Side Expressions
+		'?.'         => self::TYPE_DOT,
 
 		// ECMAScript 10.0 § 12.4 Update Expressions
 		//
@@ -954,6 +960,10 @@ class JavaScriptMinifier {
 			self::TYPE_BIN_OP => [
 				self::ACTION_GOTO => self::EXPRESSION_OP,
 			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::EXPRESSION_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
 		],
 		// State after the } closing an arrow function body: like STATEMENT except
 		// that it has semicolon insertion, COMMA can continue the expression, and after
@@ -1172,6 +1182,10 @@ class JavaScriptMinifier {
 			self::TYPE_BIN_OP => [
 				self::ACTION_GOTO => self::EXPRESSION_TERNARY_OP,
 			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
+			],
 		],
 		// Like EXPRESSION_ARROWFUNC, but for ternaries, see EXPRESSION_TERNARY
 		self::EXPRESSION_TERNARY_ARROWFUNC => [
@@ -1353,6 +1367,10 @@ class JavaScriptMinifier {
 			],
 			self::TYPE_BIN_OP => [
 				self::ACTION_GOTO => self::PAREN_EXPRESSION_OP,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::PAREN_EXPRESSION_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
 			],
 		],
 		// Like EXPRESSION_ARROWFUNC, but in parentheses, see PAREN_EXPRESSION
@@ -1619,6 +1637,10 @@ class JavaScriptMinifier {
 			],
 			self::TYPE_BIN_OP => [
 				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_OP,
+			],
+			self::TYPE_PAREN_OPEN => [
+				self::ACTION_PUSH => self::PROPERTY_EXPRESSION_OP,
+				self::ACTION_GOTO => self::PAREN_EXPRESSION,
 			],
 		],
 		// Like EXPRESSION_ARROWFUNC, but in a property expression, see PROPERTY_EXPRESSION
@@ -2218,7 +2240,15 @@ class JavaScriptMinifier {
 					// phpcs:ignore Generic.CodeAnalysis.AssignmentInCondition.Found
 					( $submap2 = $multicharPuncTokens[$ch][$s[$pos + 1]] ?? null )
 				) {
-					if ( $submap2 === 2 ) {
+					if (
+						$ch === '?' &&
+						$s[$pos + 1] === '.' &&
+						$pos + 2 < $length &&
+						is_numeric( $s[$pos + 2] )
+					) {
+						// ECMAScript 11.0 § 11.7 Punctuators
+						// OptionalChainingPunctuator is not recognised before a decimal digit.
+					} elseif ( $submap2 === 2 ) {
 						// Optimization: Shortcut for the common case of an unambiguous 2-char punctuation token
 						$end = $pos + 2;
 					} else {
@@ -2285,7 +2315,7 @@ class JavaScriptMinifier {
 			// Don't create invalid dot notation after number literal (T303827).
 			// Keep whitespace in "42. foo".
 			// But keep minifying "foo.bar", "42..foo", and "42.0.foo" per $opChars.
-			} elseif ( $lastDotlessNum && $type === self::TYPE_DOT ) {
+			} elseif ( $lastDotlessNum && $type === self::TYPE_DOT && $token !== '?.' ) {
 				$pad = ' ';
 				$lineLength++;
 			}

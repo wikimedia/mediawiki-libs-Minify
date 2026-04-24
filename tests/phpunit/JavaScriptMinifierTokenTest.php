@@ -196,8 +196,10 @@ class JavaScriptMinifierTokenTest extends TestCase {
 					if ( $type === 'NewExpression' ) {
 						$expected[] = [ 'type' => 'TYPE_UN_OP', 'token' => 'new' ];
 					}
-					// TODO: Handle $node->getOptional() to output foo?.() instead of foo()
 					$traverse( $node->getCallee(), $node );
+					if ( $type === 'CallExpression' && $node->getOptional() ) {
+						$expected[] = [ 'type' => 'TYPE_DOT', 'token' => '?.' ];
+					}
 					$expected[] = [ 'type' => 'TYPE_PAREN_OPEN', 'token' => '(' ];
 					foreach ( $node->getArguments() as $i => $child ) {
 						if ( $i !== 0 ) {
@@ -215,6 +217,9 @@ class JavaScriptMinifierTokenTest extends TestCase {
 						$expected[] = [ 'type' => 'TYPE_PAREN_CLOSE', 'token' => ')' ];
 					}
 					$traverse( $node->getBody(), $node );
+					return Traverser::DONT_TRAVERSE_CHILD_NODES;
+				case 'ChainExpression':
+					$traverse( $node->getExpression(), $node );
 					return Traverser::DONT_TRAVERSE_CHILD_NODES;
 				case 'ConditionalExpression':
 					$traverse( $node->getTest(), $node );
@@ -320,9 +325,22 @@ class JavaScriptMinifierTokenTest extends TestCase {
 					return Traverser::DONT_TRAVERSE_CHILD_NODES;
 				case 'MemberExpression':
 					$traverse( $node->getObject(), $node );
-					// TODO: Handle $node->getOptional() for `?.`
-					$expected[] = [ 'type' => 'TYPE_DOT', 'token' => '.' ];
-					$traverse( $node->getProperty(), $node );
+					$property = $node->getProperty();
+					$optional = $node->getOptional();
+					if (
+						$node->getComputed() ||
+						( $property->getType() !== 'Identifier' && $property->getType() !== 'PrivateIdentifier' )
+					) {
+						if ( $optional ) {
+							$expected[] = [ 'type' => 'TYPE_DOT', 'token' => '?.' ];
+						}
+						$expected[] = [ 'type' => 'TYPE_PAREN_OPEN', 'token' => '[' ];
+						$traverse( $property, $node );
+						$expected[] = [ 'type' => 'TYPE_PAREN_CLOSE', 'token' => ']' ];
+					} else {
+						$expected[] = [ 'type' => 'TYPE_DOT', 'token' => $optional ? '?.' : '.' ];
+						$traverse( $property, $node );
+					}
 					return Traverser::DONT_TRAVERSE_CHILD_NODES;
 				case 'MethodDefinition':
 					if ( $node->getStatic() ) {

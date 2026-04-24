@@ -537,6 +537,35 @@ JAVASCRIPT
 				"try { risky(); } catch { recover(); } finally { cleanup(); }",
 				"try{risky();}catch{recover();}finally{cleanup();}"
 			],
+			// ES2020 optional chaining
+			[
+				"let value = obj?.property;",
+				"let value=obj?.property;"
+			],
+			[
+				"let value = obj?.[ key ];",
+				"let value=obj?.[key];"
+			],
+			[
+				"let value = callback?.( arg );",
+				"let value=callback?.(arg);"
+			],
+			[
+				"let value = obj?.property?.( arg )?.[ key ];",
+				"let value=obj?.property?.(arg)?.[key];"
+			],
+			[
+				"let value = obj?.property / divisor;",
+				"let value=obj?.property/divisor;"
+			],
+			[
+				"let value = condition ? .3 : fallback;",
+				"let value=condition?.3:fallback;"
+			],
+			[
+				"let value = 1?.toString();",
+				"let value=1?.toString();"
+			],
 		];
 	}
 
