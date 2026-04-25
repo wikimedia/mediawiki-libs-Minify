@@ -315,6 +315,16 @@ class JavaScriptMinifierTokenTest extends TestCase {
 						$traverse( $node->getAlternate(), $node );
 					}
 					return Traverser::DONT_TRAVERSE_CHILD_NODES;
+				case 'ImportExpression':
+					$expected[] = [ 'type' => 'TYPE_LITERAL', 'token' => 'import' ];
+					$expected[] = [ 'type' => 'TYPE_PAREN_OPEN', 'token' => '(' ];
+					$traverse( $node->getSource(), $node );
+					if ( $node->getOptions() ) {
+						$expected[] = [ 'type' => 'TYPE_COMMA', 'token' => ',' ];
+						$traverse( $node->getOptions(), $node );
+					}
+					$expected[] = [ 'type' => 'TYPE_PAREN_CLOSE', 'token' => ')' ];
+					return Traverser::DONT_TRAVERSE_CHILD_NODES;
 				case 'LabeledStatement':
 					$traverse( $node->getLabel(), $node );
 					$expected[] = [ 'type' => 'TYPE_COLON', 'token' => ':' ];

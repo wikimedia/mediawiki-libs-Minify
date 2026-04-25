@@ -373,6 +373,12 @@ JAVASCRIPT
 			[ "import { Foo, Bar as Baz, Quux } from 'thingy';", "import{Foo,Bar as Baz,Quux}from'thingy';" ],
 			[ "import * as Foo from 'thingy';", "import*as Foo from'thingy';" ],
 			[ "import Foo, * as Bar from 'thingy';", "import Foo,*as Bar from'thingy';" ],
+			// ES2020 import/export
+			[ "import( 'thingy' );", "import('thingy');" ],
+			[ "import( 'thingy' ) / divisor;", "import('thingy')/divisor;" ],
+			[ "let module = import( 'thingy' );", "let module=import('thingy');" ],
+			[ "let url = import.meta.url;", "let url=import.meta.url;" ],
+			[ "export * as Foo from 'thingy';", "export*as Foo from'thingy';" ],
 			// Semicolon insertion before import/export
 			[ "( x, y ) => { return x + y; }\nexport class Foo {}", "(x,y)=>{return x+y;}\nexport class Foo{}" ],
 			[ "let x = y + 3\nimport Foo from 'thingy';", "let x=y+3\nimport Foo from'thingy';" ],

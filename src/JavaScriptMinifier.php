@@ -44,7 +44,8 @@ use ReflectionClass;
  * syntactically correct; if it's not, this class may not detect that, and may produce incorrect
  * output.
  * Specific ECMAScript 2020 parsing features are supported where noted below, including BigInt
- * literals, nullish coalescing, and optional chaining.
+ * literals, dynamic import, import.meta, nullish coalescing, optional chaining, and namespace
+ * re-exports.
  *
  * See also:
  * - <https://262.ecma-international.org/10.0/>
@@ -1961,6 +1962,38 @@ class JavaScriptMinifier {
 		return new IdentityMinifierState;
 	}
 
+	private static function getNextNonWhitespaceChar( string $s, int $pos ): ?string {
+		$length = strlen( $s );
+		// This is an exact copy of the whitespace/comment recognition in minifyInternal().
+		// Keep the scanner logic in sync with the inlined version there.
+		while ( $pos < $length ) {
+			$skip = strspn( $s, " \t\n\r\xb\xc", $pos );
+			if ( $skip ) {
+				$pos += $skip;
+				continue;
+			}
+			if ( substr( $s, $pos, 2 ) === '/*' ) {
+				$end = strpos( $s, '*/', $pos + 2 );
+				if ( $end === false ) {
+					return null;
+				}
+				$pos = $end + 2;
+				continue;
+			}
+			if (
+				substr( $s, $pos, 2 ) === '//' ||
+				substr( $s, $pos, 4 ) === '<!--' ||
+				substr( $s, $pos, 3 ) === '-->'
+			) {
+				$skip = strcspn( $s, "\r\n", $pos );
+				$pos += $skip;
+				continue;
+			}
+			return $s[$pos];
+		}
+		return null;
+	}
+
 	/**
 	 * Minify with optional source map.
 	 *
@@ -2001,6 +2034,9 @@ class JavaScriptMinifier {
 		// Pretend that we have seen a semicolon yet
 		$last = ';';
 		while ( $pos < $length ) {
+			// Keep the scanner logic in sync with getNextNonWhitespaceChar().
+			// It's inlined here as it's a hot path for all minification.
+
 			// First, skip over any whitespace and multiline comments, recording whether we
 			// found any newline character
 			$skip = strspn( $s, " \t\n\r\xb\xc", $pos );
@@ -2298,7 +2334,12 @@ class JavaScriptMinifier {
 			// Now get the token type from our type array
 			// so $end - $pos == strlen( $token )
 			$token = substr( $s, $pos, $end - $pos );
-			$type = isset( $model[$state][self::TYPE_SPECIAL][$token] )
+			$isImportExpression = (
+				$token === 'import' &&
+				abs( $state ) === self::STATEMENT &&
+				in_array( self::getNextNonWhitespaceChar( $s, $end ), [ '(', '.' ], true )
+			);
+			$type = !$isImportExpression && isset( $model[$state][self::TYPE_SPECIAL][$token] )
 				? self::TYPE_SPECIAL
 				: $tokenTypes[$token] ?? self::TYPE_LITERAL;
 			if ( $type === self::TYPE_YIELD ) {
