@@ -465,6 +465,10 @@ class JavaScriptMinifierTokenTest extends TestCase {
 					$literal .= '`';
 					$expected[] = [ 'type' => 'TYPE_LITERAL', 'token' => $literal ];
 					return Traverser::DONT_TRAVERSE_CHILD_NODES;
+				case 'TaggedTemplateExpression':
+					$traverse( $node->getTag(), $node );
+					$traverse( $node->getQuasi(), $node );
+					return Traverser::DONT_TRAVERSE_CHILD_NODES;
 				case 'ThrowStatement':
 					$expected[] = [ 'type' => 'TYPE_RETURN', 'token' => 'throw' ];
 					$traverse( $node->getArgument(), $node );

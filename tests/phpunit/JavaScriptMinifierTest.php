@@ -257,6 +257,19 @@ class JavaScriptMinifierTest extends TestCase {
 			// Template string with an escaped \`
 			[ 'let a = `foo\\`bar + baz`;', 'let a=`foo\\`bar + baz`;' ],
 
+			// Tagged template literals
+			[ 'let value = tag`Hello`;', 'let value=tag`Hello`;' ],
+			[ 'let value = namespace.tag`Hello`;', 'let value=namespace.tag`Hello`;' ],
+			[ 'let value = console.log.bind( 1, 2 )`Hello`;', 'let value=console.log.bind(1,2)`Hello`;' ],
+			[ 'let value = new Function( "return arguments" )`Hello`;', 'let value=new Function("return arguments")`Hello`;' ],
+			[ 'let value = recursive`Hello``World`;', 'let value=recursive`Hello``World`;' ],
+			[ 'let value = tag`That ${ person } is ${ age }.`;', 'let value=tag`That ${person} is ${age}.`;' ],
+			[ 'let value = String.raw`Hi\\n${ 2 + 3 }!`;', 'let value=String.raw`Hi\\n${2+3}!`;' ],
+			[ 'let value = tag`Hello` / divisor;', 'let value=tag`Hello`/divisor;' ],
+			[ "tag\n`Hello`;", "tag\n`Hello`;" ],
+			// ES2018: Allow illegal escape sequences in tagged template strings.
+			[ 'let value = tag`\unicode and \u{55}`;', 'let value=tag`\unicode and \u{55}`;' ],
+
 			// Behavior of 'yield' in generator functions vs normal functions
 			[ "function *f( x ) {\n if ( x )\n yield\n ( 42 )\n}", "function*f(x){if(x)yield\n(42)}" ],
 			[ "function g( y ) {\n const yield = 42\n yield\n ( 42 )\n}", "function g(y){const yield=42\nyield(42)}" ],
