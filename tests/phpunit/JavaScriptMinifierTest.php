@@ -80,6 +80,9 @@ class JavaScriptMinifierTest extends TestCase {
 			[ "5.3.\nx;", "5.3.x;" ],
 			[ "(function(){return/* one */x;})", "(function(){return x;})" ],
 			[ "(function(){return/* one\ntwo */x;})", "(function(){return\nx;})" ],
+			// Not implemented: ES2019 U+2028 (line separator) or U+2029 (paragraph separator) as Line Terminator
+			[ "(function(){return/* one\u{2028}two */x;})", "(function(){return x;})" ],
+			[ "(function(){return/* one\u{2029}two */x;})", "(function(){return x;})" ],
 
 			// Cover failure case for incomplete hex literal
 			[ "0x;", "0x;", 'Expected a hexadecimal number but found 0x;' ],
@@ -282,6 +285,16 @@ class JavaScriptMinifierTest extends TestCase {
 			[ "tag\n`Hello`;", "tag\n`Hello`;" ],
 			// ES2018: Allow illegal escape sequences in tagged template strings.
 			[ 'let value = tag`\unicode and \u{55}`;', 'let value=tag`\unicode and \u{55}`;' ],
+			// Line breaks in template literals
+			[
+				"let value = `Hi\nFoo\r\n` / divisor;",
+				"let value=`Hi\nFoo\r\n`/divisor;"
+			],
+			// ES2019: U+2028 (line separator) or U+2029 (paragraph separator) in template literals
+			[
+				"let value = `Hi\nFoo\u{2028}Bar\u{2028}\r\n` / divisor;",
+				"let value=`Hi\nFoo\u{2028}Bar\u{2028}\r\n`/divisor;"
+			],
 
 			// Behavior of 'yield' in generator functions vs normal functions
 			[ "function *f( x ) {\n if ( x )\n yield\n ( 42 )\n}", "function*f(x){if(x)yield\n(42)}" ],
@@ -375,12 +388,14 @@ JAVASCRIPT
 			// import
 			[ "import { Foo, Bar as Baz, Quux } from 'thingy';", "import{Foo,Bar as Baz,Quux}from'thingy';" ],
 			[ "import * as Foo from 'thingy';", "import*as Foo from'thingy';" ],
+			[ "import \n/* x */\n// yy\n * as Foo from 'thingy';", "import*as Foo from'thingy';" ],
 			[ "import Foo, * as Bar from 'thingy';", "import Foo,*as Bar from'thingy';" ],
 			// ES2020 import/export
 			[ "import( 'thingy' );", "import('thingy');" ],
-			[ "import( 'thingy' ) / divisor;", "import('thingy')/divisor;" ],
+			[ "import \n/* x */\n// yy\n ( 'thingy' ) / divisor;", "import('thingy')/divisor;" ],
 			[ "let module = import( 'thingy' );", "let module=import('thingy');" ],
 			[ "let url = import.meta.url;", "let url=import.meta.url;" ],
+			[ "let url = import \n/* x */\n// yy\n . \nmeta\n.\nurl;", "let url=import.meta.url;" ],
 			[ "export * as Foo from 'thingy';", "export*as Foo from'thingy';" ],
 			// Semicolon insertion before import/export
 			[ "( x, y ) => { return x + y; }\nexport class Foo {}", "(x,y)=>{return x+y;}\nexport class Foo{}" ],
@@ -985,6 +1000,29 @@ JAVASCRIPT
 					'}catch{',
 					'console.log(\'An error occurred\');',
 					'}'
+				]
+			],
+			'multiline string literal' => [
+				"var \r\n\t x = \r\n\t \"foo \\\n bar\\\r\n\t\";console.log(x);",
+				2,
+				[
+					'',
+					'var',
+					'x=',
+					'"foo \\',
+					' bar\\' . "\r",
+					"\t" . '";console.log(x);'
+				]
+			],
+			'ES2019 U+2028 (line separator) or U+2029 (paragraph separator) in multiline string literal' => [
+				"var \r\n\t x = \r\n\t \"foo \\\r\n bar\\\u{2028}\u{2029}\t\";console.log(x);",
+				2,
+				[
+					'',
+					'var',
+					'x=',
+					'"foo \\' . "\r",
+					' bar\\' . "\u{2028}\u{2029}\t" . '";console.log(x);'
 				]
 			]
 		];

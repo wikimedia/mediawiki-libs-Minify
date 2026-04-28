@@ -2105,23 +2105,55 @@ class JavaScriptMinifier {
 		// Pretend that we have seen a semicolon yet
 		$last = ';';
 		while ( $pos < $length ) {
-			// Keep the scanner logic in sync with getNextNonWhitespaceChar().
-			// It's inlined here as it's a hot path for all minification.
-
-			// First, skip over any whitespace and multiline comments, recording whether we
-			// found any newline character
+			// First, skip over any whitespace and line breaks
+			//
+			// ECMAScript 10.0 § 11.2 White Space
+			// https://262.ecma-international.org/10.0/#sec-white-space
+			//
+			// - U+0009 Tab (\t)
+			// - U+000B Line Tabulation (VT, \v in JavaScript, \xb binary in PHP)
+			// - U+000C Form Feed (FF, \f in JavaScript, \xc binary in PHP)
+			// - U+0020 Space
+			// - [Not implemented] U+00A0 No Break Space (NBSP)
+			// - [Not implemented] U+FEFF Zero Width No-Break Space (ZWNBSP)
+			// - [Not implemented] Any other Unicode "Space_Separator (Zs)" code point
+			//
+			// ECMAScript 10.0 § 11.3 Line Terminators
+			// - U+000A Line Feed (LF, \n)
+			// - U+000D Carriage Return (CR, \r)
+			// - [Not implemented] U+2028 Line Separator (LS)
+			// - [Not implemented] U+2029 Paragraph Separator (PS)
+			//
+			// The U+2028 and U+2029 codepoints are multibyte characters that are extremely unlikely
+			// to appear in source code because there is no reason for either hand-written or
+			// machine-generated code to use them. They were added in ES2019 to retroactively
+			// define JSON as a subset of JavaScript, and JSON had these only for hysterical raisins.
+			// We don't implement them because doing so would slow down all parsing, especially for
+			// "end of inline comment" and "end of identifier or reserved word". It is acceptable
+			// that we simply don't support such input. In simple cases such input would actually
+			// work fine, but it can cause invalid output.
+			//
+			// NOTE: We do support multibyte line terminators in multi-line string literals and
+			// template string literals.
+			//
+			// Optimization: Rearrange with Space, Tab, and Line Feed first which are most common.
+			//
+			// Optimization: We inline getNextNonWhitespaceChar() here because it is a hot path.
+			//
+			// NOTE: Keep the scanner logic in sync with getNextNonWhitespaceChar().
 			$skip = strspn( $s, " \t\n\r\xb\xc", $pos );
 			if ( !$skip ) {
 				$ch = $s[$pos];
+
+				// Skip multiline comment. Search for the end token or EOT.
 				if ( $ch === '/' && substr( $s, $pos, 2 ) === '/*' ) {
-					// Multiline comment. Search for the end token or EOT.
 					$end = strpos( $s, '*/', $pos + 2 );
 					$skip = $end === false ? $length - $pos : $end - $pos + 2;
 				}
 			}
-			// Record whether we skipped over a newline (in either whitespace or multiline comment)
-			// The semicolon insertion mechanism needs to know whether there was a newline
-			// between two tokens, so record it now.
+
+			// Record whether we skipped over a newline in whitespace or multiline comment.
+			// The semicolon insertion mechanism must know whether there was a newline between tokens.
 			if ( $skip ) {
 				if ( !$newlineFound && strcspn( $s, "\r\n", $pos, $skip ) !== $skip ) {
 					$newlineFound = true;
