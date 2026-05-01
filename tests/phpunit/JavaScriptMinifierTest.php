@@ -366,6 +366,25 @@ JAVASCRIPT
 				"class Foo { get bar() { return\n42 } set baz( val ) { throw new Error( 'yikes' ) } }",
 				"class Foo{get bar(){return\n42}set baz(val){throw new Error('yikes')}}"
 			],
+			// ES2022 class fields and private elements
+			[
+				"class C { field = 1; static value; #secret = 2; static #shared; }",
+				"class C{field=1;static value;#secret=2;static #shared;}"
+			],
+			[
+				"class C { [ key ] = value; static [ name ] = other; #method() { return this.#secret; }" .
+					" get #value() { return this.#secret; } set #value( value ) { this.#secret = value; } }",
+				"class C{[key]=value;static[name]=other;#method(){return this.#secret;}" .
+					"get #value(){return this.#secret;}set #value(value){this.#secret=value;}}"
+			],
+			[
+				"class C { field = 1\n static value = 2\n #secret = 3\n static #shared = 4 }",
+				"class C{field=1\nstatic value=2\n#secret=3\nstatic #shared=4}"
+			],
+			[
+				"class C { async\n method() {} }",
+				"class C{async\nmethod(){}}"
+			],
 			// Extends
 			[ "class Foo extends Bar { f() { return\n42 } }", "class Foo extends Bar{f(){return\n42}}" ],
 			[ "class Foo extends Bar.Baz { f() { return\n42 } }", "class Foo extends Bar.Baz{f(){return\n42}}" ],

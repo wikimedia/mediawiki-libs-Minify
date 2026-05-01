@@ -588,6 +588,25 @@ class JavaScriptMinifierTokenTest extends TestCase {
 						$traverse( $value, $node );
 					}
 					return Traverser::DONT_TRAVERSE_CHILD_NODES;
+				case 'PrivateIdentifier':
+					$expected[] = [ 'type' => 'TYPE_LITERAL', 'token' => '#' . $node->getName() ];
+					return Traverser::DONT_TRAVERSE_CHILD_NODES;
+				case 'PropertyDefinition':
+					if ( $node->getStatic() ) {
+						$expected[] = [ 'type' => 'TYPE_LITERAL', 'token' => 'static' ];
+					}
+					if ( $node->getComputed() ) {
+						$expected[] = [ 'type' => 'TYPE_PAREN_OPEN', 'token' => '[' ];
+						$traverse( $node->getKey(), $node );
+						$expected[] = [ 'type' => 'TYPE_PAREN_CLOSE', 'token' => ']' ];
+					} else {
+						$traverse( $node->getKey(), $node );
+					}
+					if ( $node->getValue() ) {
+						$expected[] = [ 'type' => 'TYPE_BIN_OP', 'token' => '=' ];
+						$traverse( $node->getValue(), $node );
+					}
+					return Traverser::DONT_TRAVERSE_CHILD_NODES;
 				case 'ParenthesizedExpression':
 					$expected[] = [ 'type' => 'TYPE_PAREN_OPEN', 'token' => '(' ];
 					$traverse( $node->getExpression(), $node );
