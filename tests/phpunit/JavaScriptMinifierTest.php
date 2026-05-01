@@ -409,6 +409,8 @@ JAVASCRIPT
 			[ "import { 'not an id' as alias } from 'thingy';", "import{'not an id'as alias}from'thingy';" ],
 			[ "export { alias as 'not an id' };", "export{alias as'not an id'};" ],
 			[ "export { 'not an id' as alias } from 'thingy';", "export{'not an id'as alias}from'thingy';" ],
+			// ES2022 top-level await
+			[ "await import( 'thingy' );", "await import('thingy');" ],
 			// Semicolon insertion before import/export
 			[ "( x, y ) => { return x + y; }\nexport class Foo {}", "(x,y)=>{return x+y;}\nexport class Foo{}" ],
 			[ "let x = y + 3\nimport Foo from 'thingy';", "let x=y+3\nimport Foo from'thingy';" ],
