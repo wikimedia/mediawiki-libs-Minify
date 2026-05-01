@@ -200,6 +200,7 @@ class JavaScriptMinifierTest extends TestCase {
 			// Numbers
 			// Fraction is optional
 			[ "var a = 5.;", "var a=5.;" ],
+			[ "var a = 5_0.;", "var a=5_0.;" ],
 			// No ambiguity after explicit fraction
 			[ "5.0.toString();", "5.0.toString();" ],
 			[ ".5.toString();", ".5.toString();" ],
@@ -207,6 +208,8 @@ class JavaScriptMinifierTest extends TestCase {
 			// No ambiguity after implicit fraction
 			[ "5..toString();", "5..toString();" ],
 			[ "5.\n.toString();", '5..toString();' ],
+			[ "5. \n . a_100();", '5..a_100();' ],
+			[ "5_0.4_2 \n . \n toString();", '5_0.4_2.toString();' ],
 			// No ambiguity after space (T303827)
 			[ "3\n.foo;", "3 .foo;" ],
 			[ "var _ = 2 .toString;", "var _=2 .toString;" ],
@@ -620,6 +623,23 @@ JAVASCRIPT
 			[
 				"let value = 123n / divisor;",
 				"let value=123n/divisor;"
+			],
+			// ES2021 numeric separators
+			[
+				"let value = 1_000_000;",
+				"let value=1_000_000;"
+			],
+			[
+				"let value = 1_000.25_5e1_0;",
+				"let value=1_000.25_5e1_0;"
+			],
+			[
+				"let value = 0b1010_0101 + 0o7_7 + 0xFF_EC;",
+				"let value=0b1010_0101+0o7_7+0xFF_EC;"
+			],
+			[
+				"let value = 0b1010_0101n + 1_000n;",
+				"let value=0b1010_0101n+1_000n;"
 			],
 		];
 	}

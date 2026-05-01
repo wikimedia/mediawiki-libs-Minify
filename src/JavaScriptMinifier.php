@@ -2285,7 +2285,7 @@ class JavaScriptMinifier {
 					'b', 'B' => '01',
 					'o', 'O' => '01234567',
 				};
-				$len = strspn( $s, $digits, $end );
+				$len = strspn( $s, $digits . '_', $end );
 				if ( !$len && !$error ) {
 					$base = match ( $prefix ) {
 						'x', 'X' => 'hexadecimal',
@@ -2311,20 +2311,27 @@ class JavaScriptMinifier {
 				is_numeric( $ch )
 				|| ( $ch === '.' && $pos + 1 < $length && is_numeric( $s[$pos + 1] ) )
 			) {
-				$end += strspn( $s, '0123456789', $end );
+				$end += strspn( $s, '0123456789_', $end );
 				if ( $ch === '.' ) {
 					// Valid: ".42" (number literal, fraction with implied zero)
+					// Valid: ".42_000"
 					$decimal = 1;
 				} else {
 					$decimal = strspn( $s, '.', $end );
 					if ( $decimal ) {
 						// Valid: "5." (number literal, optional fraction)
+						// Valid: "5_0." (number literal, optional fraction)
 						// Valid: "5.42" (number literal)
-						// Valid: "5..toString" (number literal "5.", followed by member expression).
+						// Valid: "5..toString" (number literal "5.", followed by member expression)
+						// Valid: "5..a_100"    (number literal "5.", followed by member expression)
+						// Valid: "5. .a_100"   (number literal "5.", followed by member expression)
+						// Valid: "5_0.4_2.toString" (number "50.42", followed by member expression)
 						// Invalid: "5..42"
 						// Invalid: "5...42"
 						// Invalid: "5...toString"
-						$fraction = strspn( $s, '0123456789', $end + $decimal );
+						// Invalid: "5._.toString" (numeric separator must be between digits, undetected)
+						// Invalid: "5_.toString" (numeric separator not allowed at end of number, undetected)
+						$fraction = strspn( $s, '0123456789_', $end + $decimal );
 						if ( $decimal === 2 && !$fraction ) {
 							// Rewind one character, so that the member expression dot
 							// will be parsed as the next token (TYPE_DOT).
@@ -2335,6 +2342,9 @@ class JavaScriptMinifier {
 						}
 						$end += $decimal + $fraction;
 					} else {
+						// Valid: "42"
+						// Valid: "42_000"
+						// Invalid: "5_" (numeric separator not allowed at end of number, undetected)
 						$plainDigits = true;
 					}
 				}
@@ -2347,7 +2357,7 @@ class JavaScriptMinifier {
 
 					// + sign is optional; - sign is required.
 					$end += strspn( $s, '-+', $end );
-					$len = strspn( $s, '0123456789', $end );
+					$len = strspn( $s, '0123456789_', $end );
 					if ( !$len && !$error ) {
 						$error = new ParseError(
 							'Missing decimal digits after exponent',
