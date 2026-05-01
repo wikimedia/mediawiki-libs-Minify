@@ -102,11 +102,36 @@ class JavaScriptMinifierTokenTest extends TestCase {
 	 * so that we can compare them against getTokensFromMinify().
 	 */
 	private function getExpectedTokensFromPeast( string $code ): array {
-		$ast = Peast::latest( $code )->parse();
+		try {
+			$ast = Peast::latest( $code )->parse();
+		} catch ( PeastSyntaxException $e ) {
+			$ast = Peast::latest( $code, [ 'sourceType' => Peast::SOURCE_TYPE_MODULE ] )->parse();
+		}
 		$expected = [];
 		$genFnStack = [];
 
-		$traverse = static function ( $node, $parent ) use ( $code, &$traverse, &$expected, &$genFnStack ) {
+		$getPreviousNonWhitespaceChar = static function ( $node ) use ( $code ): ?string {
+			$pos = $node->getLocation()->getStart()->getIndex() - 1;
+			while ( $pos >= 0 ) {
+				if ( strspn( $code[$pos], " \t\n\r\xb\xc" ) === 0 ) {
+					return $code[$pos];
+				}
+				$pos--;
+			}
+			return null;
+		};
+		$getModuleDeclarationTokenType = static function ( $node ) use ( $getPreviousNonWhitespaceChar ): string {
+			$previous = $getPreviousNonWhitespaceChar( $node );
+			return $previous !== null && $previous !== ';' ? 'TYPE_LITERAL' : 'TYPE_SPECIAL';
+		};
+
+		$traverse = static function ( $node, $parent ) use (
+			$code,
+			$getModuleDeclarationTokenType,
+			&$traverse,
+			&$expected,
+			&$genFnStack
+		) {
 			if ( !$node ) {
 				return;
 			}
@@ -232,12 +257,70 @@ class JavaScriptMinifierTokenTest extends TestCase {
 				case 'ExpressionStatement':
 					$traverse( $node->getExpression(), $node );
 					return Traverser::DONT_TRAVERSE_CHILD_NODES;
+				case 'ExportAllDeclaration':
+					$moduleDeclarationTokenType = $getModuleDeclarationTokenType( $node );
+					$expected[] = [ 'type' => $moduleDeclarationTokenType, 'token' => 'export' ];
+					$expected[] = [ 'type' => 'TYPE_SPECIAL', 'token' => '*' ];
+					if ( $node->getExported() ) {
+						$expected[] = [ 'type' => 'TYPE_SPECIAL', 'token' => 'as' ];
+						$traverse( $node->getExported(), $node );
+					}
+					$expected[] = [ 'type' => 'TYPE_SPECIAL', 'token' => 'from' ];
+					$traverse( $node->getSource(), $node );
+					return Traverser::DONT_TRAVERSE_CHILD_NODES;
+				case 'ExportDefaultDeclaration':
+					$expected[] = [ 'type' => $getModuleDeclarationTokenType( $node ), 'token' => 'export' ];
+					$expected[] = [ 'type' => 'TYPE_SPECIAL', 'token' => 'default' ];
+					$traverse( $node->getDeclaration(), $node );
+					return Traverser::DONT_TRAVERSE_CHILD_NODES;
+				case 'ExportNamedDeclaration':
+					$expected[] = [ 'type' => $getModuleDeclarationTokenType( $node ), 'token' => 'export' ];
+					if ( $node->getDeclaration() ) {
+						$traverse( $node->getDeclaration(), $node );
+					} else {
+						$expected[] = [ 'type' => 'TYPE_BRACE_OPEN', 'token' => '{' ];
+						foreach ( $node->getSpecifiers() as $i => $specifier ) {
+							if ( $i !== 0 ) {
+								$expected[] = [ 'type' => 'TYPE_COMMA', 'token' => ',' ];
+							}
+							$traverse( $specifier, $node );
+						}
+						$expected[] = [ 'type' => 'TYPE_BRACE_CLOSE', 'token' => '}' ];
+						if ( $node->getSource() ) {
+							$expected[] = [ 'type' => 'TYPE_SPECIAL', 'token' => 'from' ];
+							$traverse( $node->getSource(), $node );
+						}
+					}
+					return Traverser::DONT_TRAVERSE_CHILD_NODES;
+				case 'ExportSpecifier':
+					$traverse( $node->getLocal(), $node );
+					if ( $node->getLocal() !== $node->getExported() ) {
+						$expected[] = [ 'type' => 'TYPE_SPECIAL', 'token' => 'as' ];
+						$traverse( $node->getExported(), $node );
+					}
+					return Traverser::DONT_TRAVERSE_CHILD_NODES;
 				case 'ForStatement':
 					$expected[] = [ 'type' => 'TYPE_IF', 'token' => 'for' ];
 					$expected[] = [ 'type' => 'TYPE_PAREN_OPEN', 'token' => '(' ];
 					$traverse( $node->getInit(), $node );
 					$traverse( $node->getTest(), $node );
 					$traverse( $node->getUpdate(), $node );
+					$expected[] = [ 'type' => 'TYPE_PAREN_CLOSE', 'token' => ')' ];
+					$traverse( $node->getBody(), $node );
+					return Traverser::DONT_TRAVERSE_CHILD_NODES;
+				case 'ForInStatement':
+				case 'ForOfStatement':
+					$expected[] = [ 'type' => 'TYPE_IF', 'token' => 'for' ];
+					if ( $type === 'ForOfStatement' && $node->getAwait() ) {
+						$expected[] = [ 'type' => 'TYPE_AWAIT', 'token' => 'await' ];
+					}
+					$expected[] = [ 'type' => 'TYPE_PAREN_OPEN', 'token' => '(' ];
+					$traverse( $node->getLeft(), $node );
+					$expected[] = [
+						'type' => 'TYPE_BIN_OP',
+						'token' => $type === 'ForInStatement' ? 'in' : 'of',
+					];
+					$traverse( $node->getRight(), $node );
 					$expected[] = [ 'type' => 'TYPE_PAREN_CLOSE', 'token' => ')' ];
 					$traverse( $node->getBody(), $node );
 					return Traverser::DONT_TRAVERSE_CHILD_NODES;
@@ -304,6 +387,65 @@ class JavaScriptMinifierTokenTest extends TestCase {
 					][$rawName] ?? 'TYPE_LITERAL';
 					$expected[] = [ 'type' => $nodeType, 'token' => $rawName ];
 					return Traverser::DONT_TRAVERSE_CHILD_NODES;
+				case 'ImportDeclaration':
+					$moduleDeclarationTokenType = $getModuleDeclarationTokenType( $node );
+					$expected[] = [ 'type' => $moduleDeclarationTokenType, 'token' => 'import' ];
+					$specifiers = $node->getSpecifiers();
+					if ( $specifiers ) {
+						$defaultSpecifiers = [];
+						$namespaceSpecifiers = [];
+						$namedSpecifiers = [];
+						foreach ( $specifiers as $specifier ) {
+							switch ( $specifier->getType() ) {
+								case 'ImportDefaultSpecifier':
+									$defaultSpecifiers[] = $specifier;
+									break;
+								case 'ImportNamespaceSpecifier':
+									$namespaceSpecifiers[] = $specifier;
+									break;
+								default:
+									$namedSpecifiers[] = $specifier;
+							}
+						}
+						$groups = [];
+						foreach ( $defaultSpecifiers as $specifier ) {
+							$groups[] = [ $specifier ];
+						}
+						foreach ( $namespaceSpecifiers as $specifier ) {
+							$groups[] = [ $specifier ];
+						}
+						if ( $namedSpecifiers ) {
+							$groups[] = $namedSpecifiers;
+						}
+						foreach ( $groups as $i => $group ) {
+							if ( $i !== 0 ) {
+								$expected[] = [ 'type' => 'TYPE_COMMA', 'token' => ',' ];
+							}
+							if ( count( $group ) === 1 && $group[0]->getType() !== 'ImportSpecifier' ) {
+								$traverse( $group[0], $node );
+							} else {
+								$expected[] = [ 'type' => 'TYPE_BRACE_OPEN', 'token' => '{' ];
+								foreach ( $group as $j => $specifier ) {
+									if ( $j !== 0 ) {
+										$expected[] = [ 'type' => 'TYPE_COMMA', 'token' => ',' ];
+									}
+									$traverse( $specifier, $node );
+								}
+								$expected[] = [ 'type' => 'TYPE_BRACE_CLOSE', 'token' => '}' ];
+							}
+						}
+						$expected[] = [ 'type' => $moduleDeclarationTokenType, 'token' => 'from' ];
+					}
+					$traverse( $node->getSource(), $node );
+					return Traverser::DONT_TRAVERSE_CHILD_NODES;
+				case 'ImportDefaultSpecifier':
+					$traverse( $node->getLocal(), $node );
+					return Traverser::DONT_TRAVERSE_CHILD_NODES;
+				case 'ImportNamespaceSpecifier':
+					$expected[] = [ 'type' => 'TYPE_SPECIAL', 'token' => '*' ];
+					$expected[] = [ 'type' => 'TYPE_SPECIAL', 'token' => 'as' ];
+					$traverse( $node->getLocal(), $node );
+					return Traverser::DONT_TRAVERSE_CHILD_NODES;
 				case 'IfStatement':
 					$expected[] = [ 'type' => 'TYPE_IF', 'token' => 'if' ];
 					$expected[] = [ 'type' => 'TYPE_PAREN_OPEN', 'token' => '(' ];
@@ -325,6 +467,13 @@ class JavaScriptMinifierTokenTest extends TestCase {
 					}
 					$expected[] = [ 'type' => 'TYPE_PAREN_CLOSE', 'token' => ')' ];
 					return Traverser::DONT_TRAVERSE_CHILD_NODES;
+				case 'ImportSpecifier':
+					$traverse( $node->getImported(), $node );
+					if ( $node->getImported() !== $node->getLocal() ) {
+						$expected[] = [ 'type' => 'TYPE_SPECIAL', 'token' => 'as' ];
+						$traverse( $node->getLocal(), $node );
+					}
+					return Traverser::DONT_TRAVERSE_CHILD_NODES;
 				case 'LabeledStatement':
 					$traverse( $node->getLabel(), $node );
 					$expected[] = [ 'type' => 'TYPE_COLON', 'token' => ':' ];
@@ -341,6 +490,11 @@ class JavaScriptMinifierTokenTest extends TestCase {
 						$raw = (string)$node->getRaw();
 					}
 					$expected[] = [ 'type' => 'TYPE_LITERAL', 'token' => $raw ];
+					return Traverser::DONT_TRAVERSE_CHILD_NODES;
+				case 'MetaProperty':
+					$expected[] = [ 'type' => 'TYPE_LITERAL', 'token' => $node->getMeta() ];
+					$expected[] = [ 'type' => 'TYPE_DOT', 'token' => '.' ];
+					$expected[] = [ 'type' => 'TYPE_LITERAL', 'token' => $node->getProperty() ];
 					return Traverser::DONT_TRAVERSE_CHILD_NODES;
 				case 'MemberExpression':
 					$traverse( $node->getObject(), $node );

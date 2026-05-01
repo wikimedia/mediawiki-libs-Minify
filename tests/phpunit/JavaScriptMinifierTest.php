@@ -405,6 +405,10 @@ JAVASCRIPT
 			[ "let url = import.meta.url;", "let url=import.meta.url;" ],
 			[ "let url = import \n/* x */\n// yy\n . \nmeta\n.\nurl;", "let url=import.meta.url;" ],
 			[ "export * as Foo from 'thingy';", "export*as Foo from'thingy';" ],
+			// ES2022 arbitrary module namespace identifiers
+			[ "import { 'not an id' as alias } from 'thingy';", "import{'not an id'as alias}from'thingy';" ],
+			[ "export { alias as 'not an id' };", "export{alias as'not an id'};" ],
+			[ "export { 'not an id' as alias } from 'thingy';", "export{'not an id'as alias}from'thingy';" ],
 			// Semicolon insertion before import/export
 			[ "( x, y ) => { return x + y; }\nexport class Foo {}", "(x,y)=>{return x+y;}\nexport class Foo{}" ],
 			[ "let x = y + 3\nimport Foo from 'thingy';", "let x=y+3\nimport Foo from'thingy';" ],
