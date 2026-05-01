@@ -102,7 +102,7 @@ class JavaScriptMinifierTokenTest extends TestCase {
 	 * so that we can compare them against getTokensFromMinify().
 	 */
 	private function getExpectedTokensFromPeast( string $code ): array {
-		$ast = Peast::ES2020( $code )->parse();
+		$ast = Peast::latest( $code )->parse();
 		$expected = [];
 		$genFnStack = [];
 
