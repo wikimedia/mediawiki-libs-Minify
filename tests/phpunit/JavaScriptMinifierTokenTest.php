@@ -617,6 +617,14 @@ class JavaScriptMinifierTokenTest extends TestCase {
 					$expected[] = [ 'type' => 'TYPE_UN_OP', 'token' => '...' ];
 					$traverse( $node->getArgument(), $node );
 					return Traverser::DONT_TRAVERSE_CHILD_NODES;
+				case 'StaticBlock':
+					$expected[] = [ 'type' => 'TYPE_LITERAL', 'token' => 'static' ];
+					$expected[] = [ 'type' => 'TYPE_BRACE_OPEN', 'token' => '{' ];
+					foreach ( $node->getBody() as $child ) {
+						$traverse( $child, $node );
+					}
+					$expected[] = [ 'type' => 'TYPE_BRACE_CLOSE', 'token' => '}' ];
+					return Traverser::DONT_TRAVERSE_CHILD_NODES;
 				case 'ReturnStatement':
 					$expected[] = [ 'type' => 'TYPE_RETURN', 'token' => 'return' ];
 					$traverse( $node->getArgument(), $node );

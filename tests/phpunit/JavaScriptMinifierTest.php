@@ -385,6 +385,11 @@ JAVASCRIPT
 				"class C { async\n method() {} }",
 				"class C{async\nmethod(){}}"
 			],
+			// ES2022 class static blocks
+			[
+				"class C { static { this.registry = new Map(); } method() { return this.registry; } }",
+				"class C{static{this.registry=new Map();}method(){return this.registry;}}"
+			],
 			// Extends
 			[ "class Foo extends Bar { f() { return\n42 } }", "class Foo extends Bar{f(){return\n42}}" ],
 			[ "class Foo extends Bar.Baz { f() { return\n42 } }", "class Foo extends Bar.Baz{f(){return\n42}}" ],
