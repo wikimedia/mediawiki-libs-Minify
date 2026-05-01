@@ -78,6 +78,8 @@ class JavaScriptMinifierTest extends TestCase {
 			[ "5.\nx;", "5.\nx;" ],
 			[ "0xFF.\nx;", "0xFF.x;" ],
 			[ "5.3.\nx;", "5.3.x;" ],
+			[ "(function(){return/* one */x;})", "(function(){return x;})" ],
+			[ "(function(){return/* one\ntwo */x;})", "(function(){return\nx;})" ],
 
 			// Cover failure case for incomplete hex literal
 			[ "0x;", "0x;", 'Expected a hexadecimal number but found 0x;' ],

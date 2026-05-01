@@ -1990,9 +1990,10 @@ class JavaScriptMinifier {
 					$skip = $end === false ? $length - $pos : $end - $pos + 2;
 				}
 			}
+			// Record whether we skipped over a newline (in either whitespace or multiline comment)
+			// The semicolon insertion mechanism needs to know whether there was a newline
+			// between two tokens, so record it now.
 			if ( $skip ) {
-				// The semicolon insertion mechanism needs to know whether there was a newline
-				// between two tokens, so record it now.
 				if ( !$newlineFound && strcspn( $s, "\r\n", $pos, $skip ) !== $skip ) {
 					$newlineFound = true;
 				}
