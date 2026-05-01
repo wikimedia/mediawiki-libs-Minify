@@ -390,6 +390,11 @@ JAVASCRIPT
 				"class C { static { this.registry = new Map(); } method() { return this.registry; } }",
 				"class C{static{this.registry=new Map();}method(){return this.registry;}}"
 			],
+			// ES2022 private brand checks
+			[
+				"class C { #secret; has( obj ) { return #secret in obj; } }",
+				"class C{#secret;has(obj){return #secret in obj;}}"
+			],
 			// Extends
 			[ "class Foo extends Bar { f() { return\n42 } }", "class Foo extends Bar{f(){return\n42}}" ],
 			[ "class Foo extends Bar.Baz { f() { return\n42 } }", "class Foo extends Bar.Baz{f(){return\n42}}" ],
