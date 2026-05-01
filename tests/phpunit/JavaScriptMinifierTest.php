@@ -704,6 +704,11 @@ JAVASCRIPT
 				"a ||= b; c &&= d; e ??= f;",
 				"a||=b;c&&=d;e??=f;"
 			],
+			// ES2022 RegExp match indices
+			[
+				"let match = /(?<year>\\d{4})/d.exec( value );",
+				"let match=/(?<year>\\d{4})/d.exec(value);"
+			],
 		];
 	}
 
