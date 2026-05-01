@@ -656,6 +656,11 @@ JAVASCRIPT
 				"let value = 0b1010_0101n + 1_000n;",
 				"let value=0b1010_0101n+1_000n;"
 			],
+			// ES2021 logical assignment operators
+			[
+				"a ||= b; c &&= d; e ??= f;",
+				"a||=b;c&&=d;e??=f;"
+			],
 		];
 	}
 

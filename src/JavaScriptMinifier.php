@@ -339,15 +339,30 @@ class JavaScriptMinifier {
 			],
 		],
 		'&' => [
-			'&' => 2,
+			'&' => [
+				'' => 2,
+				'=' => [
+					'' => 3,
+				],
+			],
 			'=' => 2,
 		],
 		'|' => [
-			'|' => 2,
+			'|' => [
+				'' => 2,
+				'=' => [
+					'' => 3,
+				],
+			],
 			'=' => 2,
 		],
 		'?' => [
-			'?' => 2,
+			'?' => [
+				'' => 2,
+				'=' => [
+					'' => 3,
+				],
+			],
 			'.' => 2,
 		],
 		'/' => [
@@ -510,6 +525,9 @@ class JavaScriptMinifier {
 		'^='         => self::TYPE_BIN_OP,
 		'|='         => self::TYPE_BIN_OP,
 		'**='        => self::TYPE_BIN_OP,
+		'&&='        => self::TYPE_BIN_OP,
+		'||='        => self::TYPE_BIN_OP,
+		'??='        => self::TYPE_BIN_OP,
 
 		// ECMAScript 11.0 § 12.16 Comma Operator
 		','          => self::TYPE_COMMA,
