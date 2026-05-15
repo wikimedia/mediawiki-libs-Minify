@@ -202,17 +202,25 @@ class JavaScriptMinifierTest extends TestCase {
 			[ "var a = 5.;", "var a=5.;" ],
 			// No ambiguity after explicit fraction
 			[ "5.0.toString();", "5.0.toString();" ],
+			[ ".5.toString();", ".5.toString();" ],
+			[ ".42. toString();", ".42.toString();" ],
 			// No ambiguity after implicit fraction
 			[ "5..toString();", "5..toString();" ],
 			[ "5.\n.toString();", '5..toString();' ],
 			// No ambiguity after space (T303827)
 			[ "3\n.foo;", "3 .foo;" ],
 			[ "var _ = 2 .toString;", "var _=2 .toString;" ],
+			// No ambiguity after exponent
+			[ "10e5\n. toString();", "10e5.toString();" ],
+			// No ambiguity after implicit fraction and exponent
+			[ "10.e5\n. toString();", "10.e5.toString();" ],
 			// Invalid syntax: Simple dot notation on number literals is ambigious
 			[ "3.foo;", "3.foo;" ],
 			// Invalid syntax: Too many decimal points
 			[ "5..0;", "5..0;", 'Too many decimal points' ],
 			[ "5...toString();", "5...toString();", 'Too many decimal points' ],
+			// Invalid syntax: BigInt with exponent
+			[ "10e5n;", "10e5 n;" ],
 
 			// Cover states for dotless number literals with prop after space (T303827)
 			'STATEMENT dotless prop' => [ '42 .foo;', '42 .foo;' ],
@@ -582,6 +590,10 @@ JAVASCRIPT
 			[
 				"let value = 1n.toString();",
 				"let value=1n.toString();"
+			],
+			[
+				"let value = 2n . toString();",
+				"let value=2n.toString();"
 			],
 			[
 				"let value = 123n / divisor;",

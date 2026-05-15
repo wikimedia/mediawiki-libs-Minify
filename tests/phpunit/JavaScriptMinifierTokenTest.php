@@ -3,6 +3,7 @@ declare( strict_types = 1 );
 
 use Peast\Peast;
 use Peast\Syntax\Exception as PeastSyntaxException;
+use Peast\Syntax\Node\BigIntLiteral;
 use Peast\Traverser;
 use PHPUnit\Framework\TestCase;
 use Wikimedia\Minify\JavaScriptMinifier;
@@ -321,7 +322,7 @@ class JavaScriptMinifierTokenTest extends TestCase {
 					return Traverser::DONT_TRAVERSE_CHILD_NODES;
 				case 'Literal':
 				case 'RegExpLiteral':
-					if ( $type === 'Literal' && method_exists( $node, 'getBigint' ) ) {
+					if ( $type === 'Literal' && $node instanceof BigIntLiteral ) {
 						$location = $node->getLocation();
 						$start = $location->getStart()->getIndex();
 						$end = $location->getEnd()->getIndex();

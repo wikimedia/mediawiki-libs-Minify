@@ -218,7 +218,7 @@ class JavaScriptMinifier {
 		')' => true,
 		'[' => true,
 		']' => true,
-		// Dots have a special case after $dotlessNum which require whitespace
+		// Dots have a special case after $plainDigits which require whitespace
 		'.' => true,
 		';' => true,
 		',' => true,
@@ -1991,8 +1991,8 @@ class JavaScriptMinifier {
 		$pos = 0;
 		$length = strlen( $s );
 		$lineLength = 0;
-		$dotlessNum = false;
-		$lastDotlessNum = false;
+		$plainDigits = false;
+		$lastPlainDigits = false;
 		$newlineFound = true;
 		$state = self::STATEMENT;
 		$stack = [];
@@ -2205,26 +2205,31 @@ class JavaScriptMinifier {
 				|| ( $ch === '.' && $pos + 1 < $length && is_numeric( $s[$pos + 1] ) )
 			) {
 				$end += strspn( $s, '0123456789', $end );
-				$decimal = strspn( $s, '.', $end );
-				if ( $decimal ) {
-					// Valid: "5." (number literal, optional fraction)
-					// Valid: "5.42" (number literal)
-					// Valid: "5..toString" (number literal "5.", followed by member expression).
-					// Invalid: "5..42"
-					// Invalid: "5...42"
-					// Invalid: "5...toString"
-					$fraction = strspn( $s, '0123456789', $end + $decimal );
-					if ( $decimal === 2 && !$fraction ) {
-						// Rewind one character, so that the member expression dot
-						// will be parsed as the next token (TYPE_DOT).
-						$decimal = 1;
-					}
-					if ( $decimal > 1 && !$error ) {
-						$error = new ParseError( 'Too many decimal points', $end );
-					}
-					$end += $decimal + $fraction;
+				if ( $ch === '.' ) {
+					// Valid: ".42" (number literal, fraction with implied zero)
+					$decimal = 1;
 				} else {
-					$dotlessNum = true;
+					$decimal = strspn( $s, '.', $end );
+					if ( $decimal ) {
+						// Valid: "5." (number literal, optional fraction)
+						// Valid: "5.42" (number literal)
+						// Valid: "5..toString" (number literal "5.", followed by member expression).
+						// Invalid: "5..42"
+						// Invalid: "5...42"
+						// Invalid: "5...toString"
+						$fraction = strspn( $s, '0123456789', $end + $decimal );
+						if ( $decimal === 2 && !$fraction ) {
+							// Rewind one character, so that the member expression dot
+							// will be parsed as the next token (TYPE_DOT).
+							$decimal = 1;
+						}
+						if ( $decimal > 1 && !$error ) {
+							$error = new ParseError( 'Too many decimal points', $end );
+						}
+						$end += $decimal + $fraction;
+					} else {
+						$plainDigits = true;
+					}
 				}
 				$exponent = strspn( $s, 'eE', $end );
 				if ( $exponent ) {
@@ -2243,10 +2248,11 @@ class JavaScriptMinifier {
 						);
 					}
 					$end += $len;
+					$plainDigits = false;
 				}
 				if ( !$decimal && !$exponent && $end < $length && $s[$end] === 'n' ) {
 					$end++;
-					$dotlessNum = false;
+					$plainDigits = false;
 				}
 			} elseif ( isset( $multicharPuncTokens[$ch] ) ) {
 				// Optimization: Parse multi-character punctuation operators with direct lookahead
@@ -2331,7 +2337,7 @@ class JavaScriptMinifier {
 			// Don't create invalid dot notation after number literal (T303827).
 			// Keep whitespace in "42. foo".
 			// But keep minifying "foo.bar", "42..foo", and "42.0.foo" per $opChars.
-			} elseif ( $lastDotlessNum && $type === self::TYPE_DOT && $token !== '?.' ) {
+			} elseif ( $lastPlainDigits && $type === self::TYPE_DOT && $token !== '?.' ) {
 				$pad = ' ';
 				$lineLength++;
 			}
@@ -2359,8 +2365,8 @@ class JavaScriptMinifier {
 			$last = $s[$end - 1];
 			$pos = $end;
 			$newlineFound = false;
-			$lastDotlessNum = $dotlessNum;
-			$dotlessNum = false;
+			$lastPlainDigits = $plainDigits;
+			$plainDigits = false;
 
 			// Now that we have output our token, transition into the new state.
 			$actions = $type === self::TYPE_SPECIAL ?
