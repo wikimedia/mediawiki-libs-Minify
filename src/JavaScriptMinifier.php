@@ -748,14 +748,17 @@ class JavaScriptMinifier {
 				],
 			],
 		],
-		// After function*. Waits for { , then goes to a generator function statement.
+		// State after `function*` to wait for `{` and go to generator function statement.
+		//
+		// For example: `function* myGen(a, b) { yield 1; }`
 		self::GENFUNC => [
 			self::TYPE_BRACE_OPEN => [
 				// Note negative value: generator function states are negative
 				self::ACTION_GOTO => -self::STATEMENT
 			],
 		],
-		// Property assignment - This is an object literal declaration.
+		// State after `{` expecting property keys in an object literal declaration.
+		//
 		// For example: `{ key: value, key2, [computedKey3]: value3, method4() { ... } }`
 		self::PROPERTY_ASSIGNMENT => [
 			// Note that keywords like "if", "class", "var", "delete", "async", etc, are
@@ -826,11 +829,14 @@ class JavaScriptMinifier {
 				self::ACTION_GOTO => self::EXPRESSION_NO_NL,
 			],
 		],
-		// An expression immediately after return/throw/break/continue/yield, where a newline
-		// is not allowed. This state is identical to EXPRESSION, except that semicolon
-		// insertion can happen here, and we (almost) never stay here: in cases where EXPRESSION
-		// would do nothing, we go to EXPRESSION. We only stay here if there's a double yield,
-		// because 'yield yield foo' is a valid expression.
+
+		// State after `return` (or throw/break/continue/yield) where a newline is not allowed.
+		//
+		// This state is identical to EXPRESSION, except that semicolon insertion can happen here,
+		// and we (almost) never stay here:
+		// in cases where EXPRESSION would do nothing, we go back to EXPRESSION.
+		//
+		// We only stay here if there's a double yield, because `yield yield foo` is valid.
 		self::EXPRESSION_NO_NL => [
 			self::TYPE_UN_OP => [
 				self::ACTION_GOTO => self::EXPRESSION,
@@ -883,7 +889,19 @@ class JavaScriptMinifier {
 				self::ACTION_GOTO => self::EXPRESSION_NO_NL,
 			],
 		],
-		// Place in an expression after an operand, where we expect an operator
+
+		// State after an literal or operand in an expression, such as:
+		// `var x = foo`      e.g. for `var x = foo + 1` or `var x = foo()`
+		// `var x = async`    e.g. for `var x = async + 1` or `var x = async function () {}`
+		//
+		// This is also the state we pop back to after a nested operation has
+		// completed such as after:
+		// `var x = (foo + 1)`
+		// `var x = { foo: 1 }`
+		// `var x = class Foo {}`
+		// `var x = function () {}`
+		//
+		// We are in an expression after an operand, and expect an operator
 		self::EXPRESSION_OP => [
 			self::TYPE_BIN_OP => [
 				self::ACTION_GOTO => self::EXPRESSION,
@@ -922,14 +940,22 @@ class JavaScriptMinifier {
 				self::ACTION_GOTO => self::FUNC,
 			],
 		],
-		// State after a dot (.). Like EXPRESSION, except that many keywords behave like literals
-		// (e.g. class, if, else, var, function) because they're not valid as identifiers but are
-		// valid as property names.
+
+		// State after a dot in EXPRESSION_OP, such as:
+		// `var x = foo.`
+		// `var x = (foo + 1).`
+		//
+		// Like EXPRESSION, except many keywords behave like literals
+		// (e.g. class, if, else, var, function) because they're not valid as identifiers
+		// but are valid as property names.
 		self::EXPRESSION_DOT => [
 			self::TYPE_LITERAL => [
 				self::ACTION_GOTO => self::EXPRESSION_OP,
 			],
 			// The following are keywords behaving as literals
+			self::TYPE_ASYNC => [
+				self::ACTION_GOTO => self::EXPRESSION_OP,
+			],
 			self::TYPE_RETURN => [
 				self::ACTION_GOTO => self::EXPRESSION_OP,
 			],
@@ -962,9 +988,11 @@ class JavaScriptMinifier {
 				self::ACTION_GOTO => self::PAREN_EXPRESSION,
 			],
 		],
-		// State after the } closing an arrow function body: like STATEMENT except
-		// that it has semicolon insertion, COMMA can continue the expression, and after
-		// a function we go to STATEMENT instead of EXPRESSION_OP
+
+		// State after the `}` that closes an arrow function body
+		//
+		// Like STATEMENT except it allows semicolon insertion, COMMA can continue the expression,
+		// and after a function we go to STATEMENT instead of EXPRESSION_OP.
 		self::EXPRESSION_END => [
 			self::TYPE_UN_OP => [
 				self::ACTION_GOTO => self::EXPRESSION,
@@ -1016,7 +1044,9 @@ class JavaScriptMinifier {
 				self::ACTION_GOTO => self::EXPRESSION_OP,
 			],
 		],
-		// State after =>. Like EXPRESSION, except that { begins an arrow function body
+
+		// State after `=>`
+		// Like EXPRESSION, except that { begins an arrow function body
 		// rather than an object literal.
 		self::EXPRESSION_ARROWFUNC => [
 			self::TYPE_UN_OP => [
@@ -1048,9 +1078,14 @@ class JavaScriptMinifier {
 				self::ACTION_GOTO => self::EXPRESSION_OP,
 			],
 		],
-		// Expression after a ? . This differs from EXPRESSION because a : ends the ternary
-		// rather than starting STATEMENT (outside a ternary, : comes after a goto label)
-		// The actual rule for : ending the ternary is in EXPRESSION_TERNARY_OP.
+
+		// State after `?` in EXPRESSION_OP, expecting another expression, such as:
+		// `var x = foo ?`
+		// `foo ?`
+		//
+		// This differs from EXPRESSION because a `:` ends the ternary
+		// rather than starting STATEMENT (outside a ternary, `:` comes after a goto label)
+		// The actual rule for `:` ending the ternary is in EXPRESSION_TERNARY_OP.
 		self::EXPRESSION_TERNARY => [
 			self::TYPE_BRACE_OPEN => [
 				self::ACTION_PUSH => self::EXPRESSION_TERNARY_OP,
@@ -1152,6 +1187,9 @@ class JavaScriptMinifier {
 				self::ACTION_GOTO => self::EXPRESSION_TERNARY_OP,
 			],
 			// The following are keywords behaving as literals
+			self::TYPE_ASYNC => [
+				self::ACTION_GOTO => self::EXPRESSION_TERNARY_OP,
+			],
 			self::TYPE_RETURN => [
 				self::ACTION_GOTO => self::EXPRESSION_TERNARY_OP,
 			],
@@ -1215,7 +1253,7 @@ class JavaScriptMinifier {
 				self::ACTION_GOTO => self::EXPRESSION_TERNARY_OP,
 			],
 		],
-		// Expression inside parentheses. Like EXPRESSION, except that ) ends this state
+		// Expression inside parentheses. Like EXPRESSION, except that `)` ends this state
 		// This differs from EXPRESSION because semicolon insertion can't happen here
 		self::PAREN_EXPRESSION => [
 			self::TYPE_BRACE_OPEN => [
@@ -1332,12 +1370,20 @@ class JavaScriptMinifier {
 				self::ACTION_POP => true,
 			],
 		],
+
+		// State after dot in PAREN_EXPRESSION, such as
+		// `var x = (foo.`
+		// `if (foo.`
+		//
 		// Like EXPRESSION_DOT, but in parentheses, see PAREN_EXPRESSION
 		self::PAREN_EXPRESSION_DOT => [
 			self::TYPE_LITERAL => [
 				self::ACTION_GOTO => self::PAREN_EXPRESSION_OP,
 			],
 			// The following are keywords behaving as literals
+			self::TYPE_ASYNC => [
+				self::ACTION_GOTO => self::PAREN_EXPRESSION_OP,
+			],
 			self::TYPE_RETURN => [
 				self::ACTION_GOTO => self::PAREN_EXPRESSION_OP,
 			],
@@ -1437,8 +1483,9 @@ class JavaScriptMinifier {
 				self::ACTION_POP => true,
 			],
 		],
-		// Expression as the value of a key in an object literal.
-		// This means we're at "{ foo:".
+
+		// State after `{ foo:` expecting an expression as the value of a key in an object literal.
+		//
 		// Like EXPRESSION, except that a comma (in PROPERTY_EXPRESSION_OP) goes to PROPERTY_ASSIGNMENT instead
 		self::PROPERTY_EXPRESSION => [
 			self::TYPE_BRACE_OPEN => [
@@ -1515,8 +1562,10 @@ class JavaScriptMinifier {
 				self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
 			],
 		],
+
+		// State after `{ foo: bar`
+		//
 		// Like EXPRESSION_OP, but in a property expression, see PROPERTY_EXPRESSION
-		// This means we're at "{ foo: bar".
 		self::PROPERTY_EXPRESSION_OP => [
 			self::TYPE_BIN_OP => [
 				self::ACTION_GOTO => self::PROPERTY_EXPRESSION,
@@ -1548,8 +1597,10 @@ class JavaScriptMinifier {
 				self::ACTION_GOTO => self::PAREN_EXPRESSION,
 			],
 		],
+
+		// State after `{ foo: async`
+		//
 		// Like PROPERTY_EXPRESSION_OP, but with an added TYPE_FUNC handler.
-		// This means we're at "{ foo: async".
 		//
 		// This state exists to support "{ foo: async function() {",
 		// which can't re-use PROPERTY_EXPRESSION_OP, because handling TYPE_FUNC there
@@ -1602,12 +1653,18 @@ class JavaScriptMinifier {
 				self::ACTION_GOTO => self::FUNC,
 			],
 		],
+
+		// State after `{ foo: bar.`
+		//
 		// Like EXPRESSION_DOT, but in a property expression, see PROPERTY_EXPRESSION
 		self::PROPERTY_EXPRESSION_DOT => [
 			self::TYPE_LITERAL => [
 				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_OP,
 			],
 			// The following are keywords behaving as literals
+			self::TYPE_ASYNC => [
+				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_OP,
+			],
 			self::TYPE_RETURN => [
 				self::ACTION_GOTO => self::PROPERTY_EXPRESSION_OP,
 			],

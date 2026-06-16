@@ -434,6 +434,22 @@ JAVASCRIPT
 				"let x = {y: z.delete}\n let obj = {}\n function f() { return\n42 }",
 				"let x={y:z.delete}\nlet obj={}\nfunction f(){return\n42}"
 			],
+			// Reserved async word classified as literal in dot notation (T429402)
+			[
+				// EXPRESSION_DOT
+				"if (r.async) {} function isLinkOpen() {} function isLinkClose() { return />/; }\n// Stupid",
+				"if(r.async){}function isLinkOpen(){}function isLinkClose(){return/>/;}"
+			],
+			[
+				// PROPERTY_EXPRESSION_DOT
+				"var r = { foo: bar.async }; function isLinkOpen() {} function isLinkClose() { return />/; }\n// Stupid",
+				"var r={foo:bar.async};function isLinkOpen(){}function isLinkClose(){return/>/;}"
+			],
+			[
+				// EXPRESSION_TERNARY_DOT
+				"var x = foo ? bar.async : 0; function isLinkOpen() {} function isLinkClose() { return />/; }\n// Stupid",
+				"var x=foo?bar.async:0;function isLinkOpen(){}function isLinkClose(){return/>/;}"
+			],
 			[
 				"var\n x \n = \n async \n function foo(){}",
 				"var x=async\nfunction foo(){}"
