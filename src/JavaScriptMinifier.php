@@ -891,8 +891,8 @@ class JavaScriptMinifier {
 		],
 
 		// State after an literal or operand in an expression, such as:
-		// `var x = foo`      e.g. for `var x = foo + 1` or `var x = foo()`
-		// `var x = async`    e.g. for `var x = async + 1` or `var x = async function () {}`
+		// `var x = foo`      potentially `var x = foo + 1` or `var x = foo()`
+		// `var x = async`    potentially `var x = async + 1` or `var x = async function () {}`
 		//
 		// This is also the state we pop back to after a nested operation has
 		// completed such as after:
@@ -1045,8 +1045,11 @@ class JavaScriptMinifier {
 			],
 		],
 
-		// State after `=>`
-		// Like EXPRESSION, except that { begins an arrow function body
+		// State after `=>` such as:
+		// `var inc = a =>`        potentially `var inc = a => a + 1;`
+		// `var sum = (a, b) =>`   potentially `var sum = (a, b) => a + b;`
+		//
+		// Like EXPRESSION, except that `{` begins an arrow function body
 		// rather than an object literal.
 		self::EXPRESSION_ARROWFUNC => [
 			self::TYPE_UN_OP => [
@@ -1152,6 +1155,16 @@ class JavaScriptMinifier {
 				self::ACTION_GOTO => self::EXPRESSION_TERNARY,
 			],
 		],
+
+		// State after an literal or operand in a ternary expression, such as:
+		// `var x = foo ? foo`       potentially `foo ? foo + 1 : 0` or `foo ? foo.bar : 0`
+		//
+		// This is also the state we pop back to after a nested operation has
+		// completed such as after:
+		// `var x = foo ? (foo + 1)`
+		// `var x = foo ? { foo: 1 }`
+		// `var x = foo ? function (a, b) {}`
+		//
 		// Like EXPRESSION_OP, but for ternaries, see EXPRESSION_TERNARY
 		self::EXPRESSION_TERNARY_OP => [
 			self::TYPE_BIN_OP => [
@@ -1181,6 +1194,11 @@ class JavaScriptMinifier {
 				self::ACTION_POP => true,
 			],
 		],
+
+		// State after a dot in a ternary expression, such as:
+		// `var x = foo ? foo.`
+		// `var x = foo ? (foo + 1).`
+		//
 		// Like EXPRESSION_DOT, but for ternaries, see EXPRESSION_TERNARY
 		self::EXPRESSION_TERNARY_DOT => [
 			self::TYPE_LITERAL => [
