@@ -68,6 +68,14 @@ class JavaScriptMinifierTest extends TestCase {
 			[ "throw new\nError('x');", "throw new Error('x');" ],
 			[ "while(p){continue\nx;}", "while(p){continue\nx;}" ],
 			[ "while(p){break\nx;}", "while(p){break\nx;}" ],
+			[
+				"console.log(Array.from((function(){yield \n+1;})()));",
+				"console.log(Array.from((function(){yield+1;})()));"
+			],
+			[
+				"console.log(Array.from((function*(){yield \n+1;})()));",
+				"console.log(Array.from((function*(){yield\n+1;})()));"
+			],
 			[ "var\nx;", "var x;" ],
 			[ "x\ny;", "x\ny;" ],
 			[ "x\n++y;", "x\n++y;" ],
