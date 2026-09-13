@@ -2509,12 +2509,11 @@ class JavaScriptMinifier {
 			) {
 				$pad = "\n";
 				$lineLength = 0;
-			// Class fields can omit semicolons. Preserve line breaks that separate
-			// class elements so we don't merge fields into invalid expressions.
+			// Class fields can omit semicolons, so need to preserve newlines after them.
+			// Preserve all line breaks before non-punctuation tokens in class bodies.
 			} elseif ( $newlineFound &&
 				$state === self::PROPERTY_ASSIGNMENT &&
 				$topOfStack === self::STATEMENT &&
-				!isset( $opChars[$last] ) &&
 				!isset( $opChars[$ch] )
 			) {
 				$pad = "\n";

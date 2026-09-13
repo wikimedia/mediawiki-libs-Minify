@@ -701,6 +701,9 @@ class JavaScriptMinifierTokenTest extends TestCase {
 						$traverse( $node->getFinalizer(), $node );
 					}
 					return Traverser::DONT_TRAVERSE_CHILD_NODES;
+				case 'Super':
+					$expected[] = [ 'type' => 'TYPE_LITERAL', 'token' => 'super' ];
+					return Traverser::DONT_TRAVERSE_CHILD_NODES;
 				case 'ThisExpression':
 					$expected[] = [ 'type' => 'TYPE_LITERAL', 'token' => 'this' ];
 					return Traverser::DONT_TRAVERSE_CHILD_NODES;

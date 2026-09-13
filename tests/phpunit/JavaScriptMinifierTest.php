@@ -385,6 +385,24 @@ JAVASCRIPT
 				"class C { async\n method() {} }",
 				"class C{async\nmethod(){}}"
 			],
+			'class field object initializer before constructor' => [
+				'class Badge extends HTMLElement{$badge;$badgeContent;$defaults={' .
+					"positionX:'left',positionY:'bottom'}\n" .
+					"constructor(){super();this.attachShadow({mode:'open'});}}",
+				'class Badge extends HTMLElement{$badge;$badgeContent;$defaults={' .
+					"positionX:'left',positionY:'bottom'}\n" .
+					"constructor(){super();this.attachShadow({mode:'open'});}}"
+			],
+			'class field initializers ending in punctuation' => [
+				"class C { object = {}\n array = []\n call = f()\n single = 'x'\n double = \"x\"\n" .
+					"template = `x`\n method() {} }",
+				"class C{object={}\narray=[]\ncall=f()\nsingle='x'\ndouble=\"x\"\n" .
+					"template=`x`\nmethod(){}}"
+			],
+			'class field initializer continuation' => [
+				"class C { field = f()\n .value; other = []\n .length; }",
+				"class C{field=f().value;other=[].length;}"
+			],
 			// ES2022 class static blocks
 			[
 				"class C { static { this.registry = new Map(); } method() { return this.registry; } }",
@@ -527,7 +545,7 @@ JAVASCRIPT
 			// Async class methods
 			[
 				"class User { getId() {\nreturn 42;}\n\n async  login() {\n  return true;\n }\n }",
-				"class User{getId(){return 42;}async login(){return true;}}"
+				"class User{getId(){return 42;}\nasync login(){return true;}}"
 			],
 			// Async object methods
 			[
